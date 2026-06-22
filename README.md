@@ -5,17 +5,17 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.6 Update
+## v0.7 Update
 
-v0.6 hardens the local node client.
+v0.7 adds scheduler persistence.
 
 ### What changed
 
-- Added `node_client/device.py`: CPU, memory, OS, and NVIDIA GPU detection
-- Added `node_client/resource_guard.py`: CPU and memory resource limits
-- Added `node_client/job_runner.py`: simulated sandboxed job runner
-- Updated `node_client/client.py`: retry, heartbeat stability, resource guard, local logs
-- Added `docs/NODE_CLIENT.md`: node client hardening guide
+- Added `api/storage.py`: SQLite-backed scheduler store
+- Updated `api/main.py`: nodes, jobs, and results now persist locally
+- Added `docs/SCHEDULER.md`: scheduler persistence guide
+- `/network/status` now reports persisted node/job/result counts
+- The local node client can keep using the same API, but the scheduler state survives process restarts
 
 ## Core Positioning
 
@@ -27,7 +27,8 @@ Users contribute local compute. The network gets lower-cost AI inference, fine-t
 
 ```text
 index.html                    # English-first product MVP
-api/main.py                   # FastAPI local scheduler/API skeleton
+api/main.py                   # FastAPI API using persistent scheduler store
+api/storage.py                # SQLite scheduler persistence
 api/ollama_adapter.py         # Optional Ollama local AI adapter
 api/memory_store.py           # Local JSON memory storage
 node_client/client.py         # Hardened local node client
@@ -39,6 +40,7 @@ docs/ROADMAP.md               # Product roadmap
 docs/LOCAL_RUNTIME.md         # Local runtime instructions
 docs/OLLAMA.md                # Ollama setup guide
 docs/NODE_CLIENT.md           # Node client guide
+docs/SCHEDULER.md             # Scheduler persistence guide
 validate.py                   # Repository validation
 requirements.txt              # Python dependencies
 ```
@@ -72,6 +74,12 @@ python node_client/client.py \
   --contribution 30 \
   --max-cpu-percent 70 \
   --min-free-memory-gb 1.5
+```
+
+Check persisted scheduler status:
+
+```bash
+curl http://127.0.0.1:8000/network/status
 ```
 
 ## Enable Real Local AI
