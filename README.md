@@ -5,20 +5,19 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.9 Update
+## v0.9.1 Focus Update
 
-v0.9 adds training jobs and model version registration.
+This update removes the unrelated robot positioning from the main project scope.
 
-### What changed
+### Main scope
 
-- Added `api/training.py`: training job planner
-- Updated `api/storage.py`: model version registry and custom training jobs
-- Updated `api/main.py`: training and model version APIs
-- Added `POST /training/jobs`
-- Added `GET /training/jobs`
-- Added `POST /models/versions`
-- Added `GET /models/versions`
-- Added `docs/TRAINING.md`
+- Open GPU Network
+- Private AI Runtime
+- Node Client
+- Scheduler
+- Queue and Verification
+- Training Jobs
+- Model Version Registry
 
 ## Core Positioning
 
@@ -88,6 +87,6 @@ The `/ai/chat` endpoint returns `provider: ollama` when Ollama is running, and `
 
 ## Product Keywords
 
-**Free, private, open, user-owned, robot-ready AI.**
+**Free, private, open, user-owned GPU network, local AI runtime.**
 
-**免费、隐私、开放、共建、机器人。**
+**免费、隐私、开放、用户共建算力网络、本地 AI 运行时。**
