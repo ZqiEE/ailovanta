@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Open GPU Privacy AI Dashboard</title>
+<style>
+body{margin:0;background:#050505;color:#f8fafc;font-family:Inter,Arial,sans-serif}main{max-width:1180px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{border:1px solid #27272a;background:#111;border-radius:20px;padding:18px}.card b{font-size:30px;display:block}button,input{border:1px solid #333;background:#0b0b0b;color:#fff;border-radius:12px;padding:10px 12px}button{cursor:pointer}pre{white-space:pre-wrap;overflow:auto;background:#060606;border:1px solid #27272a;border-radius:16px;padding:14px}.muted{color:#a1a1aa}.ok{color:#22c55e}.warn{color:#f59e0b}.blue{color:#60a5fa}@media(max-width:900px){.grid{grid-template-columns:1fr}.top{display:block}}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div><h1>Open GPU Privacy AI Dashboard</h1><p class="muted">Local dashboard for nodes, jobs, verification, and model registry.</p></div><div><input id="api" value="http://127.0.0.1:8000" /><button id="refresh">Refresh</button></div></div>
+<div class="grid">
+  <div class="card"><span class="muted">Nodes</span><b class="ok" id="nodes">-</b></div>
+  <div class="card"><span class="muted">Total jobs</span><b class="blue" id="totalJobs">-</b></div>
+  <div class="card"><span class="muted">Queued</span><b class="warn" id="queuedJobs">-</b></div>
+  <div class="card"><span class="muted">Models</span><b id="models">-</b></div>
+</div>
+<div class="grid" style="margin-top:14px">
+  <div class="card"><span class="muted">Assigned</span><b id="assignedJobs">-</b></div>
+  <div class="card"><span class="muted">Completed</span><b id="completedJobs">-</b></div>
+  <div class="card"><span class="muted">Failed</span><b id="failedJobs">-</b></div>
+  <div class="card"><span class="muted">Verification pass</span><b id="passRate">-</b></div>
+</div>
+<div class="card" style="margin-top:14px"><h2>Recent jobs</h2><pre id="jobs">Loading...</pre></div>
+<div class="card" style="margin-top:14px"><h2>Model versions</h2><pre id="modelList">Loading...</pre></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);async function get(path){const base=$('api').value.replace(/\/$/,'');const res=await fetch(base+path);if(!res.ok)throw new Error(path+' '+res.status);return res.json()}async function refresh(){try{const s=await get('/dashboard/summary');$('nodes').textContent=s.nodes;$('totalJobs').textContent=s.total_jobs;$('queuedJobs').textContent=s.queued_jobs;$('assignedJobs').textContent=s.assigned_jobs;$('completedJobs').textContent=s.completed_jobs;$('failedJobs').textContent=s.failed_jobs;$('models').textContent=s.model_versions;$('passRate').textContent=Math.round((s.verification_pass_rate||0)*100)+'%';$('jobs').textContent=JSON.stringify(await get('/dashboard/jobs'),null,2);$('modelList').textContent=JSON.stringify(await get('/dashboard/models'),null,2)}catch(e){$('jobs').textContent='Dashboard error: '+e.message;$('modelList').textContent='Check that the API is running.'}}$('refresh').onclick=refresh;refresh();
+</script>
+</body>
+</html>
