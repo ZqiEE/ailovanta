@@ -73,11 +73,12 @@
 
 ## v0.9 Training Jobs
 
-- RAG crawler/indexer
-- Authorized data import
-- LoRA/QLoRA job schema
+- Training job planner
+- RAG import job schema
+- LoRA micro job schema
+- Evaluation batch job schema
+- Robot memory tuning job schema
 - Model version registry
-- Training job lifecycle
 
 ## v1.0 Robot SDK
 
