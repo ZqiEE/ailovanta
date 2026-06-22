@@ -1,0 +1,48 @@
+# Changelog
+
+## v1.1 Operations Pack
+
+- Added `/health`
+- Added `/ready`
+- Added queue maintenance script
+- Added training demo script
+- Added operations guide
+- Added developer handoff guide
+
+## v1.0 Engineering Pack
+
+- Added Dockerfile
+- Added Docker Compose
+- Added Makefile
+- Added pytest tests
+- Added smoke test script
+- Added API reference
+- Added deployment guide
+- Added security notes
+- CI now installs dependencies and runs validation plus tests
+
+## v0.9 Focused Training Jobs
+
+- Added training job planner
+- Added training job API
+- Added model version registry
+- Removed unrelated scope from product positioning
+
+## v0.8 Queue and Verification
+
+- Added result verification engine
+- Added verification records
+- Added retry failed jobs endpoint
+- Added requeue stale jobs endpoint
+
+## v0.7 Scheduler Persistence
+
+- Added SQLite scheduler store
+- Persisted nodes, jobs, results
+
+## v0.6 Node Client Hardening
+
+- Added device detection
+- Added resource guard
+- Added job runner
+- Added retry and logs
