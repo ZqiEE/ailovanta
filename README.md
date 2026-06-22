@@ -5,6 +5,22 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
+## v2.0 Data Engine Pack
+
+Added:
+
+- `api/source_registry.py`
+- `api/corpus_pipeline.py`
+- `api/web_document_store.py`
+- `api/corpus_search.py`
+- `api/training_candidate_store.py`
+- `scripts/seed_authorized_corpus_demo.py`
+- `scripts/corpus_report.py`
+- `tests/test_corpus_pipeline.py`
+- `tests/test_corpus_source_store.py`
+- `make data-demo`
+- `make data-report`
+
 ## v1.9 Report Store Pack
 
 Added:
@@ -17,37 +33,12 @@ Added:
 - `make worker-reports`
 - `make export-reports`
 
-## v1.8 Worker Reports Pack
+## Data Engine
 
-Added:
-
-- `node_client/job_descriptor.py`
-- `node_client/execution_report.py`
-- `scripts/worker_report_demo.py`
-- `docs/JOB_DESCRIPTOR.md`
-- `tests/test_job_descriptor.py`
-- `tests/test_execution_report.py`
-- `make worker-report`
-
-## v1.7 Worker Safety Pack
-
-Added in v1.7:
-
-- `node_client/task_policy.py`
-- `scripts/worker_self_check.py`
-- `docs/WORKER_SAFETY.md`
-- `tests/test_task_policy.py`
-- `tests/test_job_runner_policy.py`
-
-Existing packs:
-
-- v1.6 Scheduler Intelligence Pack
-- v1.5 Usage Metering Pack
-- v1.4 Reputation Pack
-- v1.3 Node Identity Pack
-- v1.2 Dashboard Pack
-- v1.1 Operations Pack
-- **v1.0 Engineering Pack**
+```bash
+make data-demo
+make data-report
+```
 
 ## Run Local Runtime
 
@@ -56,62 +47,6 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn api.main:app --reload
-```
-
-In another terminal:
-
-```bash
-python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
-```
-
-## Worker Reports
-
-```bash
-make worker-report
-make worker-reports
-make export-reports
-python -m pytest tests/test_report_store.py -q
-```
-
-## Worker Check
-
-```bash
-python scripts/worker_self_check.py
-python -m pytest tests/test_task_policy.py tests/test_job_runner_policy.py -q
-```
-
-## Scheduler Intelligence
-
-```bash
-python scripts/seed_routing_demo.py
-python scripts/route_preview.py --node-id node_route_gpu
-```
-
-Open:
-
-```text
-routing.html
-```
-
-## Usage Metering
-
-```bash
-python scripts/simulate_usage.py --api-url http://127.0.0.1:8000
-python scripts/export_usage.py --api-url http://127.0.0.1:8000
-```
-
-Open:
-
-```text
-usage.html
-```
-
-## Dashboard
-
-Open:
-
-```text
-dashboard.html
 ```
 
 ## Docker
