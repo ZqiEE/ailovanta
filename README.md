@@ -5,9 +5,9 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.9.1 Focus Update
+## v1.0 Engineering Pack
 
-This update removes the unrelated robot positioning from the main project scope.
+This update turns the repository into a more complete developer handoff package.
 
 ### Main scope
 
@@ -18,6 +18,18 @@ This update removes the unrelated robot positioning from the main project scope.
 - Queue and Verification
 - Training Jobs
 - Model Version Registry
+
+### Engineering assets added
+
+- `Dockerfile`
+- `docker-compose.yml`
+- `Makefile`
+- `tests/test_api_contract.py`
+- `scripts/smoke_api.py`
+- `docs/API.md`
+- `docs/DEPLOYMENT.md`
+- `docs/SECURITY.md`
+- CI now installs dependencies, runs `validate.py`, and runs `pytest`
 
 ## Core Positioning
 
@@ -39,6 +51,11 @@ node_client/client.py         # Hardened local node client
 node_client/device.py         # Device and GPU detection
 node_client/resource_guard.py # CPU/memory resource guard
 node_client/job_runner.py     # Simulated sandboxed job runner
+tests/test_api_contract.py    # API contract tests
+scripts/smoke_api.py          # End-to-end smoke script
+docs/API.md                   # API reference
+docs/DEPLOYMENT.md            # Deployment guide
+docs/SECURITY.md              # Security notes
 docs/TRAINING.md              # Training jobs guide
 docs/VERIFICATION.md          # Queue and verification guide
 docs/SCHEDULER.md             # Scheduler persistence guide
@@ -68,7 +85,24 @@ python node_client/client.py \
   --min-free-memory-gb 1.5
 ```
 
-Create a training job:
+## Use Makefile
+
+```bash
+make install
+make validate
+make test
+make api
+make node
+make smoke
+```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+## Create a training job
 
 ```bash
 curl -X POST http://127.0.0.1:8000/training/jobs \
