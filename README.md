@@ -5,21 +5,26 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v1.4 Reputation Pack
+## v1.5 Usage Metering Pack
 
-Includes v1.3 Node Identity Pack plus reputation scoring and node leaderboard.
+Includes v1.4 Reputation Pack plus local event metering.
 
-Added in v1.4:
+Added in v1.5:
 
-- `api/reputation.py`
-- `GET /reputation/leaderboard`
-- `GET /reputation/summary`
-- `scripts/export_reputation.py`
-- `docs/REPUTATION.md`
-- `tests/test_reputation.py`
+- `api/usage_store.py`
+- `POST /usage/events`
+- `GET /usage/events`
+- `GET /usage/summary`
+- `usage.html`
+- `scripts/simulate_usage.py`
+- `scripts/export_usage.py`
+- `docs/METERING.md`
+- `tests/test_usage.py`
+- `tests/test_usage_api.py`
 
 Existing packs:
 
+- v1.4 Reputation Pack
 - v1.3 Node Identity Pack
 - v1.2 Dashboard Pack
 - v1.1 Operations Pack
@@ -36,6 +41,7 @@ Main scope:
 - Model Version Registry
 - Local Dashboard
 - Node Reputation
+- Usage Metering
 
 ## Core Positioning
 
@@ -56,6 +62,20 @@ In another terminal:
 
 ```bash
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
+```
+
+## Usage Metering
+
+```bash
+python scripts/simulate_usage.py --api-url http://127.0.0.1:8000
+curl http://127.0.0.1:8000/usage/summary
+python scripts/export_usage.py --api-url http://127.0.0.1:8000
+```
+
+Open:
+
+```text
+usage.html
 ```
 
 ## Reputation
@@ -87,30 +107,8 @@ The dashboard reads:
 http://127.0.0.1:8000/dashboard/summary
 ```
 
-## Makefile
-
-```bash
-make install
-make validate
-make test
-make api
-make node
-make smoke
-make maintain
-make demo-training
-```
-
 ## Docker
 
 ```bash
 docker compose up --build
 ```
-
-## Enable Real Local AI
-
-```bash
-ollama pull qwen2.5:3b
-uvicorn api.main:app --reload
-```
-
-The `/ai/chat` endpoint returns `provider: ollama` when Ollama is running, and `provider: fallback` when it is not.
