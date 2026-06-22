@@ -7,7 +7,10 @@ from uuid import uuid4
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-app = FastAPI(title="Open GPU Privacy AI API", version="0.4.0")
+from api.memory_store import MemoryStore
+from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
+
+app = FastAPI(title="Open GPU Privacy AI API", version="0.5.0")
 
 nodes: dict[str, dict] = {}
 jobs: list[dict] = [
@@ -16,6 +19,8 @@ jobs: list[dict] = [
     {"id": "job-lora-001", "type": "lora_micro", "payload": {"steps": 20}},
 ]
 results: list[dict] = []
+memories = MemoryStore()
+ollama = OllamaAdapter()
 
 
 class NodeRegister(BaseModel):
@@ -42,6 +47,13 @@ class JobResult(BaseModel):
 class ChatRequest(BaseModel):
     prompt: str
     mode: Literal["standard", "open", "creative", "private_companion"] = "open"
+    user_id: str = "local"
+    remember: bool = False
+
+
+class MemoryRequest(BaseModel):
+    memory: str
+    user_id: str = "local"
 
 
 def utc_now() -> str:
@@ -52,8 +64,10 @@ def utc_now() -> str:
 def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
-        "version": "0.4.0",
-        "status": "local runtime skeleton",
+        "version": "0.5.0",
+        "status": "local AI runtime skeleton",
+        "ollama_base_url": ollama.config.base_url,
+        "ollama_model": ollama.config.model,
     }
 
 
@@ -108,19 +122,42 @@ def submit_result(body: JobResult) -> dict:
 
 @app.post("/ai/chat")
 def ai_chat(body: ChatRequest) -> dict:
-    return {
-        "mode": body.mode,
-        "reply": (
-            "This is the v0.4 local API skeleton. "
-            "Next step: connect this endpoint to Ollama, local memory, and the scheduler."
-        ),
-    }
+    memory = memories.list(body.user_id)
+    if body.remember:
+        memories.add(f"User asked in {body.mode} mode: {body.prompt[:180]}", body.user_id)
+        memory = memories.list(body.user_id)
+    try:
+        reply = ollama.chat(body.prompt, mode=body.mode, memory=memory)
+        provider = "ollama"
+    except OllamaUnavailable as exc:
+        provider = "fallback"
+        reply = (
+            "Ollama is not available yet, so this is the fallback local runtime reply. "
+            "Start Ollama and pull a model to enable real local AI. "
+            "Next build step: connect this endpoint to persistent memory, the scheduler, and node-backed jobs."
+        )
+        error = str(exc)
+    else:
+        error = None
+    return {"provider": provider, "mode": body.mode, "reply": reply, "error": error, "memory_items": len(memory)}
+
+
+@app.get("/memory")
+def list_memory(user_id: str = "local") -> dict:
+    return {"user_id": user_id, "memory": memories.list(user_id)}
+
+
+@app.post("/memory")
+def add_memory(body: MemoryRequest) -> dict:
+    return {"user_id": body.user_id, "memory": memories.add(body.memory, body.user_id)}
+
+
+@app.delete("/memory")
+def wipe_memory(user_id: str = "local") -> dict:
+    memories.wipe(user_id)
+    return {"ok": True, "user_id": user_id, "memory": []}
 
 
 @app.get("/network/status")
 def network_status() -> dict:
-    return {
-        "nodes": len(nodes),
-        "queued_jobs": len(jobs),
-        "submitted_results": len(results),
-    }
+    return {"nodes": len(nodes), "queued_jobs": len(jobs), "submitted_results": len(results)}
