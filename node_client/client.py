@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 
 from node_client.device import detect_device
+from node_client.identity import NodeIdentity
 from node_client.job_runner import JobRunner
 from node_client.resource_guard import ResourceGuard, ResourceLimits
 
@@ -21,6 +22,7 @@ class NodeConfig:
     max_cpu_percent: int
     min_free_memory_gb: float
     log_dir: Path
+    identity_path: Path
 
 
 def setup_logging(log_dir: Path) -> None:
@@ -28,10 +30,7 @@ def setup_logging(log_dir: Path) -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(log_dir / "node.log", encoding="utf-8"),
-        ],
+        handlers=[logging.StreamHandler(), logging.FileHandler(log_dir / "node.log", encoding="utf-8")],
     )
 
 
@@ -51,11 +50,14 @@ def request_with_retry(method: str, url: str, *, attempts: int = 3, **kwargs) ->
 
 
 def register_node(config: NodeConfig) -> str:
+    identity = NodeIdentity(config.identity_path)
+    local_node_id = identity.get_or_create()
     profile = detect_device()
-    payload = profile.to_api_payload(config.contribution_percent)
+    payload = profile.to_api_payload(config.contribution_percent) | {"node_id": local_node_id}
     response = request_with_retry("POST", f"{config.api_url}/nodes/register", json=payload)
     data = response.json()
     node_id = data["node_id"]
+    identity.set(node_id)
     logging.info("registered node=%s score=%s gpu=%s", node_id, data.get("score"), payload.get("gpu_name"))
     return node_id
 
@@ -115,6 +117,7 @@ def main() -> None:
     parser.add_argument("--max-cpu-percent", type=int, default=70)
     parser.add_argument("--min-free-memory-gb", type=float, default=1.5)
     parser.add_argument("--log-dir", default="runtime_data/logs")
+    parser.add_argument("--identity-path", default="runtime_data/node_identity.json")
     args = parser.parse_args()
     worker_loop(
         NodeConfig(
@@ -124,6 +127,7 @@ def main() -> None:
             max_cpu_percent=args.max_cpu_percent,
             min_free_memory_gb=args.min_free_memory_gb,
             log_dir=Path(args.log_dir),
+            identity_path=Path(args.identity_path),
         )
     )
 
