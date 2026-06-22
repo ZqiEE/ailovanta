@@ -39,12 +39,13 @@
 ## v0.5 Local AI Runtime
 
 - Ollama adapter
-- Qwen/Llama local inference
-- Local memory persistence
-- `/ai/chat` connected to a real local model
-- Optional Stable Diffusion worker
+- `/ai/chat` tries local model first
+- Graceful fallback when Ollama is unavailable
+- Local JSON memory store
+- `/memory` list/add/wipe endpoints
+- Ollama setup guide
 
-## v0.6 Node Client
+## v0.6 Node Client Hardening
 
 - GPU detection
 - Resource throttling
