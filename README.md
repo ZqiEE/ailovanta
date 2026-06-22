@@ -5,6 +5,18 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
+## v1.8 Worker Reports Pack
+
+Added:
+
+- `node_client/job_descriptor.py`
+- `node_client/execution_report.py`
+- `scripts/worker_report_demo.py`
+- `docs/JOB_DESCRIPTOR.md`
+- `tests/test_job_descriptor.py`
+- `tests/test_execution_report.py`
+- `make worker-report`
+
 ## v1.7 Worker Safety Pack
 
 Added in v1.7:
@@ -38,6 +50,12 @@ In another terminal:
 
 ```bash
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
+```
+
+## Worker Reports
+
+```bash
+make worker-report
 ```
 
 ## Worker Check
