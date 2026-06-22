@@ -3,20 +3,19 @@
 > Run a node, use private AI for free. No node, use paid mode.  
 > 开节点，免费用隐私 AI；不开节点，付费用。
 
-A local static MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
+A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.3 Update
+## v0.4 Update
 
-v0.3 moves the project from a polished demo into a more realistic product skeleton.
+v0.4 moves the project from product skeleton to local runtime skeleton.
 
 ### What changed
 
-- Added Node Client page: device scan, resource cap, heartbeat, worker loop
-- Added API page: scheduler, node registration, job dispatch, result submit
-- Added Protocol page: contributor access, node reputation, task verification
-- Added Pricing page: contributor free, paid user, builder API, enterprise/private pool
-- Added Waitlist page: local demo waitlist stored in browser
-- Updated roadmap and validation checks
+- Added `api/main.py`: FastAPI scheduler/API skeleton
+- Added `node_client/client.py`: local node client simulation
+- Added `requirements.txt`: Python runtime dependencies
+- Added `docs/LOCAL_RUNTIME.md`: local runtime guide
+- Added API endpoints for node registration, heartbeat, job dispatch, result submit, AI chat, and network status
 
 ## Core Positioning
 
@@ -24,28 +23,20 @@ v0.3 moves the project from a polished demo into a more realistic product skelet
 
 Users contribute local compute. The network gets lower-cost AI inference, fine-tuning, evaluation, and data processing capacity. Contributors unlock free AI usage. Non-contributors can use paid mode.
 
-## MVP Features
-
-- Contributor mode: run a GPU/CPU node and use AI for free
-- Paid mode: use AI without running a node
-- Node client simulation
-- Scheduler/API skeleton
-- Compute network dashboard
-- Private AI chat demo
-- Ephemeral prompts, replies, chat records, and robot memory
-- Local robot memory with one-click wipe
-- Training engine simulation: RAG, data cleaning, LoRA/QLoRA, task dispatch, model merge
-- Investor narrative: user growth → compute growth → lower cost → better AI → more users
-
-## Run Locally
-
-Double click:
+## Current Structure
 
 ```text
-index.html
+index.html                 # English-first product MVP
+api/main.py                # FastAPI local scheduler/API skeleton
+node_client/client.py      # Local node client skeleton
+docs/ARCHITECTURE.md       # Architecture notes
+docs/ROADMAP.md            # Product roadmap
+docs/LOCAL_RUNTIME.md      # Local runtime instructions
+validate.py                # Static repository validation
+requirements.txt           # Python dependencies
 ```
 
-Or run:
+## Run Static MVP
 
 ```bash
 python -m http.server 8000
@@ -57,14 +48,20 @@ Then open:
 http://localhost:8000
 ```
 
-## Roadmap
+## Run Local Runtime
 
-1. Add real Ollama + Qwen/Llama local inference
-2. Build Python/Rust node client
-3. Build FastAPI scheduler
-4. Add PostgreSQL node/user system
-5. Add Redis task queue
-6. Add robot SDK and local-first memory
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn api.main:app --reload
+```
+
+In another terminal:
+
+```bash
+python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
+```
 
 ## Product Keywords
 
