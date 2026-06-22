@@ -9,16 +9,18 @@ from api.dashboard import DashboardService
 from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
+from api.reputation import ReputationService
 from api.storage import SchedulerStore
 from api.training import TrainingKind, TrainingPlanner
 from api.verification import VerificationEngine
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 
 app = FastAPI(title="Open GPU Privacy AI API", version=APP_VERSION)
 
 store = SchedulerStore()
 dashboard = DashboardService(store)
+reputation = ReputationService(store)
 memories = MemoryStore()
 ollama = OllamaAdapter()
 verifier = VerificationEngine()
@@ -80,9 +82,10 @@ def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
         "version": APP_VERSION,
-        "status": "node-identity private AI compute network",
+        "status": "reputation-ready private AI compute network",
         "scheduler": store.status(),
         "dashboard": "/dashboard/summary",
+        "reputation": "/reputation/leaderboard",
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
     }
@@ -117,6 +120,16 @@ def dashboard_models(limit: int = 20) -> dict:
 @app.get("/dashboard/nodes")
 def dashboard_nodes(limit: int = 20) -> dict:
     return {"nodes": store.list_nodes(limit=limit)}
+
+
+@app.get("/reputation/leaderboard")
+def reputation_leaderboard(limit: int = 20) -> dict:
+    return reputation.leaderboard(limit=limit)
+
+
+@app.get("/reputation/summary")
+def reputation_summary() -> dict:
+    return reputation.summary()
 
 
 @app.post("/nodes/register")
