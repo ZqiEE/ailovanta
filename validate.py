@@ -5,6 +5,7 @@ index = root / "index.html"
 readme = root / "README.md"
 api = root / "api" / "main.py"
 storage = root / "api" / "storage.py"
+verification = root / "api" / "verification.py"
 ollama = root / "api" / "ollama_adapter.py"
 memory = root / "api" / "memory_store.py"
 node_client = root / "node_client" / "client.py"
@@ -12,6 +13,7 @@ node_device = root / "node_client" / "device.py"
 resource_guard = root / "node_client" / "resource_guard.py"
 job_runner = root / "node_client" / "job_runner.py"
 scheduler_doc = root / "docs" / "SCHEDULER.md"
+verification_doc = root / "docs" / "VERIFICATION.md"
 node_doc = root / "docs" / "NODE_CLIENT.md"
 runtime_doc = root / "docs" / "LOCAL_RUNTIME.md"
 ollama_doc = root / "docs" / "OLLAMA.md"
@@ -23,6 +25,7 @@ for path in [
     readme,
     api,
     storage,
+    verification,
     ollama,
     memory,
     node_client,
@@ -30,6 +33,7 @@ for path in [
     resource_guard,
     job_runner,
     scheduler_doc,
+    verification_doc,
     node_doc,
     runtime_doc,
     ollama_doc,
@@ -53,12 +57,32 @@ for marker in [
     assert marker in html, f"missing html marker: {marker}"
 
 api_text = api.read_text(encoding="utf-8")
-for marker in ["FastAPI", "SchedulerStore", "OllamaAdapter", "MemoryStore", "/nodes/register", "/jobs/next", "/ai/chat", "/memory"]:
+for marker in [
+    "FastAPI",
+    "SchedulerStore",
+    "VerificationEngine",
+    "OllamaAdapter",
+    "MemoryStore",
+    "/jobs/retry-failed",
+    "/jobs/requeue-stale",
+    "/verification/status",
+]:
     assert marker in api_text, f"missing api marker: {marker}"
 
 storage_text = storage.read_text(encoding="utf-8")
-for marker in ["SchedulerStore", "sqlite3", "register_node", "next_job", "submit_result", "status"]:
+for marker in [
+    "SchedulerStore",
+    "sqlite3",
+    "verifications",
+    "record_verification",
+    "retry_failed_jobs",
+    "requeue_stale_assigned",
+]:
     assert marker in storage_text, f"missing storage marker: {marker}"
+
+verification_text = verification.read_text(encoding="utf-8")
+for marker in ["VerificationEngine", "VerificationResult", "score_result"]:
+    assert marker in verification_text, f"missing verification marker: {marker}"
 
 client_text = node_client.read_text(encoding="utf-8")
 for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_logging", "worker_loop"]:
