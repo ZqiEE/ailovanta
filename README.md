@@ -5,17 +5,18 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.4 Update
+## v0.5 Update
 
-v0.4 moves the project from product skeleton to local runtime skeleton.
+v0.5 adds the first local AI runtime path.
 
 ### What changed
 
-- Added `api/main.py`: FastAPI scheduler/API skeleton
-- Added `node_client/client.py`: local node client simulation
-- Added `requirements.txt`: Python runtime dependencies
-- Added `docs/LOCAL_RUNTIME.md`: local runtime guide
-- Added API endpoints for node registration, heartbeat, job dispatch, result submit, AI chat, and network status
+- Added `api/ollama_adapter.py`: optional Ollama chat adapter
+- Added `api/memory_store.py`: local JSON memory store
+- Updated `api/main.py`: `/ai/chat` tries Ollama first and falls back gracefully
+- Added `/memory` endpoints for list/add/wipe memory
+- Added `docs/OLLAMA.md`: local Ollama setup guide
+- Added `.env.example` and `.gitignore`
 
 ## Core Positioning
 
@@ -28,11 +29,14 @@ Users contribute local compute. The network gets lower-cost AI inference, fine-t
 ```text
 index.html                 # English-first product MVP
 api/main.py                # FastAPI local scheduler/API skeleton
+api/ollama_adapter.py      # Optional Ollama local AI adapter
+api/memory_store.py        # Local JSON memory storage
 node_client/client.py      # Local node client skeleton
 docs/ARCHITECTURE.md       # Architecture notes
 docs/ROADMAP.md            # Product roadmap
 docs/LOCAL_RUNTIME.md      # Local runtime instructions
-validate.py                # Static repository validation
+docs/OLLAMA.md             # Ollama setup guide
+validate.py                # Repository validation
 requirements.txt           # Python dependencies
 ```
 
@@ -62,6 +66,22 @@ In another terminal:
 ```bash
 python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
 ```
+
+## Enable Real Local AI
+
+Install Ollama and pull a local model:
+
+```bash
+ollama pull qwen2.5:3b
+```
+
+Then start the API:
+
+```bash
+uvicorn api.main:app --reload
+```
+
+The `/ai/chat` endpoint will return `provider: ollama` when Ollama is running, and `provider: fallback` when it is not.
 
 ## Product Keywords
 
