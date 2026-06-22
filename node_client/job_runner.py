@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from node_client.job_descriptor import JobDescriptorPolicy
 from node_client.task_policy import TaskPolicy
 
 
@@ -13,21 +14,33 @@ class JobRunResult:
     output_summary: str
     runtime_seconds: float
     policy_reason: str = "accepted"
+    descriptor_reason: str = "descriptor optional"
 
 
 class JobRunner:
     """Safe simulated runner for local MVP nodes.
 
-    It does not execute arbitrary code. It validates task type and payload size,
-    then returns a simulated execution report.
+    It does not execute arbitrary code. It validates task type, payload size,
+    and optional job descriptor before returning a structured result.
     """
 
-    def __init__(self, policy: TaskPolicy | None = None) -> None:
+    def __init__(self, policy: TaskPolicy | None = None, descriptor_policy: JobDescriptorPolicy | None = None) -> None:
         self.policy = policy or TaskPolicy.default()
+        self.descriptor_policy = descriptor_policy or JobDescriptorPolicy(required=False)
 
     def run(self, job: dict) -> JobRunResult:
         start = time.time()
         job_type = job.get("type", "unknown")
+        descriptor_check = self.descriptor_policy.validate(job)
+        if not descriptor_check.ok:
+            return JobRunResult(
+                job_id=job.get("id", "unknown"),
+                status="failed",
+                output_summary=f"rejected by descriptor policy: {descriptor_check.reason}",
+                runtime_seconds=round(time.time() - start, 3),
+                policy_reason="descriptor rejected",
+                descriptor_reason=descriptor_check.reason,
+            )
         ok, reason = self.policy.validate(job)
         if not ok:
             return JobRunResult(
@@ -36,6 +49,7 @@ class JobRunner:
                 output_summary=f"rejected by worker policy: {reason}",
                 runtime_seconds=round(time.time() - start, 3),
                 policy_reason=reason,
+                descriptor_reason=descriptor_check.reason,
             )
 
         simulated_seconds = min(self._simulated_seconds(job_type), self.policy.max_runtime_seconds)
@@ -48,6 +62,7 @@ class JobRunner:
                 output_summary="worker timeout",
                 runtime_seconds=runtime,
                 policy_reason="timeout",
+                descriptor_reason=descriptor_check.reason,
             )
         return JobRunResult(
             job_id=job["id"],
@@ -55,6 +70,7 @@ class JobRunner:
             output_summary=f"simulated safe result for {job_type}",
             runtime_seconds=runtime,
             policy_reason=reason,
+            descriptor_reason=descriptor_check.reason,
         )
 
     @staticmethod
