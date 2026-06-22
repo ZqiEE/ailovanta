@@ -19,15 +19,24 @@
 - Upgraded training simulator
 - Robot-ready positioning
 
-## v0.3 Local AI
+## v0.3 Product Skeleton
 
-- Add Ollama adapter
-- Support Qwen/Llama
-- Local inference
+- Node Client page
+- API skeleton page
+- Protocol page
+- Pricing page
+- Waitlist page
+- More realistic build path
+
+## v0.4 Local AI Runtime
+
+- Ollama adapter
+- Qwen/Llama local inference
 - Local memory persistence
-- Basic API endpoint
+- Basic local API endpoint
+- Optional Stable Diffusion worker
 
-## v0.4 Node Client
+## v0.5 Node Client
 
 - Python/Rust node
 - GPU detection
@@ -35,8 +44,9 @@
 - Heartbeat
 - Task execution
 - Auto retry
+- Local logs
 
-## v0.5 Scheduler
+## v0.6 Scheduler
 
 - FastAPI scheduler
 - PostgreSQL
@@ -45,7 +55,7 @@
 - Task retry
 - Verification workflow
 
-## v0.6 Training
+## v0.7 Training
 
 - RAG crawler/indexer
 - Authorized data import
