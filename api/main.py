@@ -8,14 +8,16 @@ from pydantic import BaseModel, Field
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.storage import SchedulerStore
+from api.training import TrainingKind, TrainingPlanner
 from api.verification import VerificationEngine
 
-app = FastAPI(title="Open GPU Privacy AI API", version="0.8.0")
+app = FastAPI(title="Open GPU Privacy AI API", version="0.9.0")
 
 store = SchedulerStore()
 memories = MemoryStore()
 ollama = OllamaAdapter()
 verifier = VerificationEngine()
+training = TrainingPlanner()
 
 
 class NodeRegister(BaseModel):
@@ -39,6 +41,22 @@ class JobResult(BaseModel):
     output_summary: str
 
 
+class TrainingJobRequest(BaseModel):
+    kind: TrainingKind
+    name: str
+    dataset_uri: str
+    base_model: str = "qwen2.5:3b"
+    max_steps: int = Field(default=100, ge=1, le=10000)
+    notes: str = ""
+
+
+class ModelVersionRequest(BaseModel):
+    name: str
+    base_model: str
+    source_job_id: str
+    notes: str = ""
+
+
 class ChatRequest(BaseModel):
     prompt: str
     mode: Literal["standard", "open", "creative", "private_companion"] = "open"
@@ -55,8 +73,8 @@ class MemoryRequest(BaseModel):
 def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
-        "version": "0.8.0",
-        "status": "queue and verification skeleton",
+        "version": "0.9.0",
+        "status": "training jobs skeleton",
         "scheduler": store.status(),
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
@@ -74,6 +92,11 @@ def heartbeat(body: Heartbeat) -> dict:
     if not node:
         return {"ok": False, "error": "node not found"}
     return {"ok": True, "node": node}
+
+
+@app.get("/jobs")
+def list_jobs(status: str | None = None, limit: int = 50) -> dict:
+    return {"jobs": store.list_jobs(status=status, limit=limit)}
 
 
 @app.get("/jobs/next")
@@ -105,6 +128,30 @@ def requeue_stale(older_than_minutes: int = 30) -> dict:
     return {"ok": True, **store.requeue_stale_assigned(older_than_minutes=older_than_minutes)}
 
 
+@app.post("/training/jobs")
+def create_training_job(body: TrainingJobRequest) -> dict:
+    job = training.build_job(body.kind, body.name, body.dataset_uri, body.base_model, body.max_steps, body.notes)
+    queued = store.enqueue_job(job["job_id"], job["job_type"], job["payload"])
+    return {"ok": True, "job": queued}
+
+
+@app.get("/training/jobs")
+def list_training_jobs(limit: int = 50) -> dict:
+    jobs = [job for job in store.list_jobs(limit=limit) if job["type"] in {"rag_import", "lora_micro", "evaluation_batch", "robot_memory_tune"}]
+    return {"jobs": jobs}
+
+
+@app.post("/models/versions")
+def create_model_version(body: ModelVersionRequest) -> dict:
+    record = training.build_model_version(body.name, body.base_model, body.source_job_id, body.notes)
+    return {"ok": True, "model": store.register_model_version(record)}
+
+
+@app.get("/models/versions")
+def list_model_versions(limit: int = 50) -> dict:
+    return {"models": store.list_model_versions(limit=limit)}
+
+
 @app.get("/verification/status")
 def verification_status() -> dict:
     status = store.status()
@@ -129,7 +176,7 @@ def ai_chat(body: ChatRequest) -> dict:
         reply = (
             "Ollama is not available yet, so this is the fallback local runtime reply. "
             "Start Ollama and pull a model to enable real local AI. "
-            "The scheduler now supports queue recovery and verification records."
+            "The scheduler now supports training jobs and model version registration."
         )
         error = str(exc)
     else:
