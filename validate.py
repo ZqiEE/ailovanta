@@ -11,18 +11,18 @@ html = index.read_text(encoding="utf-8")
 required = [
     "Open GPU Privacy AI",
     "Run a node. Use private AI for free.",
-    "Live MVP",
-    "Compute Supply",
+    "Node Client",
+    "API Skeleton",
+    "Protocol",
+    "Pricing",
+    "Waitlist",
     "Training Simulator",
     "Robot Memory",
-    "Investor",
-    "RAG",
-    "LoRA",
 ]
 for marker in required:
     assert marker in html, f"missing marker: {marker}"
 
 assert "<script>" in html and "</script>" in html, "script block missing"
-assert html.count("<section") >= 6, "expected multiple product sections"
+assert html.count("<section") >= 8, "expected v0.3 product sections"
 
 print("Validation passed.")
