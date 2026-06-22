@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Node Reputation Leaderboard</title>
+<style>
+body{margin:0;background:#050505;color:#f8fafc;font-family:Inter,Arial,sans-serif}main{max-width:1100px;margin:auto;padding:28px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.card{border:1px solid #27272a;background:#111;border-radius:20px;padding:18px;margin-top:14px}input,button{border:1px solid #333;background:#0b0b0b;color:#fff;border-radius:12px;padding:10px 12px}button{cursor:pointer}.muted{color:#a1a1aa}table{width:100%;border-collapse:collapse;margin-top:14px}td,th{border-bottom:1px solid #27272a;padding:10px;text-align:left}th{color:#fff}td{color:#d4d4d8}.score{font-weight:900;color:#22c55e}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div><h1>Node Reputation Leaderboard</h1><p class="muted">Ranks local nodes by trust, compute score, GPU availability, and current status.</p></div><div><input id="api" value="http://127.0.0.1:8000" /><button id="refresh">Refresh</button></div></div>
+<div class="card"><h2>Summary</h2><pre id="summary">Loading...</pre></div>
+<div class="card"><h2>Leaderboard</h2><table><thead><tr><th>Rank</th><th>Node</th><th>Status</th><th>GPU</th><th>Trust</th><th>Compute</th><th>Reputation</th></tr></thead><tbody id="rows"></tbody></table></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);async function get(path){const base=$('api').value.replace(/\/$/,'');const res=await fetch(base+path);if(!res.ok)throw new Error(path+' '+res.status);return res.json()}async function refresh(){try{const s=await get('/reputation/summary');$('summary').textContent=JSON.stringify(s,null,2);const data=await get('/reputation/leaderboard');$('rows').innerHTML=(data.nodes||[]).map((n,i)=>`<tr><td>${i+1}</td><td>${n.node_id}<br><span class="muted">${n.device_name}</span></td><td>${n.status}</td><td>${n.has_gpu?n.gpu_name||'yes':'no'}</td><td>${n.trust}</td><td>${n.compute_score}</td><td class="score">${n.reputation_score}</td></tr>`).join('')}catch(e){$('summary').textContent='Error: '+e.message;$('rows').innerHTML=''}}$('refresh').onclick=refresh;refresh();
+</script>
+</body>
+</html>
