@@ -47,17 +47,18 @@
 
 ## v0.6 Node Client Hardening
 
-- GPU detection
-- Resource throttling
+- Device and NVIDIA GPU detection
+- CPU and memory resource guard
 - Heartbeat stability
-- Task execution sandbox
-- Auto retry
-- Local logs
+- HTTP retry with backoff
+- Simulated sandboxed job runner
+- Local node logs
 
-## v0.7 Scheduler
+## v0.7 Scheduler Persistence
 
 - PostgreSQL
 - Redis queue
+- Persistent node identity
 - Node reputation
 - Task retry
 - Verification workflow
