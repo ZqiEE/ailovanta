@@ -8,12 +8,14 @@ from pydantic import BaseModel, Field
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.storage import SchedulerStore
+from api.verification import VerificationEngine
 
-app = FastAPI(title="Open GPU Privacy AI API", version="0.7.0")
+app = FastAPI(title="Open GPU Privacy AI API", version="0.8.0")
 
 store = SchedulerStore()
 memories = MemoryStore()
 ollama = OllamaAdapter()
+verifier = VerificationEngine()
 
 
 class NodeRegister(BaseModel):
@@ -53,8 +55,8 @@ class MemoryRequest(BaseModel):
 def root() -> dict:
     return {
         "name": "Open GPU Privacy AI",
-        "version": "0.7.0",
-        "status": "scheduler persistence skeleton",
+        "version": "0.8.0",
+        "status": "queue and verification skeleton",
         "scheduler": store.status(),
         "ollama_base_url": ollama.config.base_url,
         "ollama_model": ollama.config.model,
@@ -88,7 +90,29 @@ def submit_result(body: JobResult) -> dict:
     if not node:
         return {"ok": False, "error": "node not found"}
     accepted = store.submit_result(body.model_dump())
-    return {"ok": True, "accepted": accepted}
+    verification = verifier.score_result(body.job_id, body.node_id, body.status, body.output_summary)
+    verified = store.record_verification(accepted, verification.score, verification.passed, verification.reason)
+    return {"ok": True, "accepted": accepted, "verification": verified}
+
+
+@app.post("/jobs/retry-failed")
+def retry_failed(max_attempts: int = 3) -> dict:
+    return {"ok": True, **store.retry_failed_jobs(max_attempts=max_attempts)}
+
+
+@app.post("/jobs/requeue-stale")
+def requeue_stale(older_than_minutes: int = 30) -> dict:
+    return {"ok": True, **store.requeue_stale_assigned(older_than_minutes=older_than_minutes)}
+
+
+@app.get("/verification/status")
+def verification_status() -> dict:
+    status = store.status()
+    return {
+        "verifications": status["verifications"],
+        "passed_verifications": status["passed_verifications"],
+        "failed_verifications": status["verifications"] - status["passed_verifications"],
+    }
 
 
 @app.post("/ai/chat")
@@ -105,7 +129,7 @@ def ai_chat(body: ChatRequest) -> dict:
         reply = (
             "Ollama is not available yet, so this is the fallback local runtime reply. "
             "Start Ollama and pull a model to enable real local AI. "
-            "The scheduler now persists nodes, jobs, and results in SQLite."
+            "The scheduler now supports queue recovery and verification records."
         )
         error = str(exc)
     else:
