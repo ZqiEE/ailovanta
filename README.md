@@ -5,17 +5,19 @@
 
 A local MVP for a **user-owned GPU network for private AI**. Free access attracts users, users contribute idle GPU/CPU through local nodes, and user growth becomes compute growth.
 
-## v0.7 Update
+## v0.8 Update
 
-v0.7 adds scheduler persistence.
+v0.8 adds queue recovery and verification.
 
 ### What changed
 
-- Added `api/storage.py`: SQLite-backed scheduler store
-- Updated `api/main.py`: nodes, jobs, and results now persist locally
-- Added `docs/SCHEDULER.md`: scheduler persistence guide
-- `/network/status` now reports persisted node/job/result counts
-- The local node client can keep using the same API, but the scheduler state survives process restarts
+- Added `api/verification.py`: lightweight result verification engine
+- Updated `api/storage.py`: verification records, failed-job retry, stale-job requeue
+- Updated `api/main.py`: `/jobs/result` now records verification results
+- Added `POST /jobs/retry-failed`
+- Added `POST /jobs/requeue-stale`
+- Added `GET /verification/status`
+- Added `docs/VERIFICATION.md`
 
 ## Core Positioning
 
@@ -28,7 +30,8 @@ Users contribute local compute. The network gets lower-cost AI inference, fine-t
 ```text
 index.html                    # English-first product MVP
 api/main.py                   # FastAPI API using persistent scheduler store
-api/storage.py                # SQLite scheduler persistence
+api/storage.py                # SQLite scheduler persistence and queue recovery
+api/verification.py           # Lightweight verification engine
 api/ollama_adapter.py         # Optional Ollama local AI adapter
 api/memory_store.py           # Local JSON memory storage
 node_client/client.py         # Hardened local node client
@@ -41,20 +44,9 @@ docs/LOCAL_RUNTIME.md         # Local runtime instructions
 docs/OLLAMA.md                # Ollama setup guide
 docs/NODE_CLIENT.md           # Node client guide
 docs/SCHEDULER.md             # Scheduler persistence guide
+docs/VERIFICATION.md          # Queue and verification guide
 validate.py                   # Repository validation
 requirements.txt              # Python dependencies
-```
-
-## Run Static MVP
-
-```bash
-python -m http.server 8000
-```
-
-Then open:
-
-```text
-http://localhost:8000
 ```
 
 ## Run Local Runtime
@@ -76,21 +68,21 @@ python node_client/client.py \
   --min-free-memory-gb 1.5
 ```
 
-Check persisted scheduler status:
+Check scheduler and verification:
 
 ```bash
 curl http://127.0.0.1:8000/network/status
+curl http://127.0.0.1:8000/verification/status
 ```
 
 ## Enable Real Local AI
 
-Install Ollama and pull a local model:
-
 ```bash
 ollama pull qwen2.5:3b
+uvicorn api.main:app --reload
 ```
 
-The `/ai/chat` endpoint will return `provider: ollama` when Ollama is running, and `provider: fallback` when it is not.
+The `/ai/chat` endpoint returns `provider: ollama` when Ollama is running, and `provider: fallback` when it is not.
 
 ## Product Keywords
 
