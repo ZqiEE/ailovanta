@@ -3,14 +3,23 @@
 ## v0.1 Public MVP
 
 - Static web demo
-- Contribution/free-use model
+- Contributor/free-use model
 - Paid/no-node model
 - Ephemeral chat
 - Open mode
 - Robot memory
 - Training engine simulation
 
-## v0.2 Local AI
+## v0.2 Global Demo
+
+- English-first homepage and README
+- Compute network dashboard
+- Better access gate
+- Investor narrative page
+- Upgraded training simulator
+- Robot-ready positioning
+
+## v0.3 Local AI
 
 - Add Ollama adapter
 - Support Qwen/Llama
@@ -18,7 +27,7 @@
 - Local memory persistence
 - Basic API endpoint
 
-## v0.3 Node Client
+## v0.4 Node Client
 
 - Python/Rust node
 - GPU detection
@@ -27,14 +36,16 @@
 - Task execution
 - Auto retry
 
-## v0.4 Scheduler
+## v0.5 Scheduler
 
+- FastAPI scheduler
+- PostgreSQL
+- Redis queue
 - Node reputation
-- Task queue
-- Redundant verification
-- Basic dashboard
+- Task retry
+- Verification workflow
 
-## v0.5 Training
+## v0.6 Training
 
 - RAG crawler/indexer
 - Authorized data import
