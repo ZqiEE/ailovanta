@@ -1,6 +1,12 @@
 # Deployment
 
-This repository is still a local MVP. Use local deployment first.
+Ailovanta is still a local MVP. Use local deployment first.
+
+Repository:
+
+```bash
+git clone https://github.com/ZqiEE/ailovanta.git
+```
 
 ## Local API
 
@@ -14,8 +20,8 @@ uvicorn api.main:app --reload
 ## Docker
 
 ```bash
-docker build -t open-gpu-privacy-ai .
-docker run --rm -p 8000:8000 -v "$PWD/runtime_data:/app/runtime_data" open-gpu-privacy-ai
+docker build -t ailovanta .
+docker run --rm -p 8000:8000 -v "$PWD/runtime_data:/app/runtime_data" ailovanta
 ```
 
 ## Docker Compose
