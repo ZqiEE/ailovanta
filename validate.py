@@ -9,6 +9,7 @@ paths = {
     "brand": root / "BRAND.md",
     "contributing": root / "CONTRIBUTING.md",
     "api": root / "api" / "main.py",
+    "runtime_router": root / "api" / "runtime_router.py",
     "health": root / "api" / "health.py",
     "storage": root / "api" / "storage.py",
     "training": root / "api" / "training.py",
@@ -43,7 +44,7 @@ for path in paths.values():
     assert path.exists(), f"missing file: {path.relative_to(root)}"
 
 version_text = paths["version"].read_text(encoding="utf-8").strip()
-assert version_text == "1.3.0-public-mvp", f"unexpected version: {version_text}"
+assert version_text == "1.4.0-runtime-router", f"unexpected version: {version_text}"
 
 html = paths["index"].read_text(encoding="utf-8")
 for marker in [
@@ -93,7 +94,7 @@ for marker in ["Core Integration Plan", "Runtime pool interface", "Access Router
     assert marker in integration_text, f"missing integration plan marker: {marker}"
 
 changelog_text = paths["changelog"].read_text(encoding="utf-8")
-for marker in ["v1.3 Public MVP Finalization", "Ailovanta", "VERSION"]:
+for marker in ["v1.4 Runtime Router MVP", "Ailovanta", "VERSION"]:
     assert marker in changelog_text, f"missing changelog marker: {marker}"
 
 api_text = paths["api"].read_text(encoding="utf-8")
@@ -101,9 +102,14 @@ for marker in [
     "FastAPI",
     "FileResponse",
     "Ailovanta API",
-    "SchedulerStore",
-    "TrainingPlanner",
-    "VerificationEngine",
+    "RuntimeRegistry",
+    "RuntimeModelRegister",
+    "RuntimeNodeRegister",
+    "RuntimeRouteRequest",
+    "/runtime/models/register",
+    "/runtime/nodes/register",
+    "/runtime/status",
+    "/runtime/route",
     "/app",
     "/dashboard",
     "/health",
@@ -118,6 +124,10 @@ for marker in [
     "/ai/chat",
 ]:
     assert marker in api_text, f"missing api marker: {marker}"
+
+router_text = paths["runtime_router"].read_text(encoding="utf-8")
+for marker in ["ModelManifest", "RuntimeNodeProfile", "RuntimeRequest", "RuntimeAssignment", "RuntimeRegistry", "has_warm_model", "privacy_level"]:
+    assert marker in router_text, f"missing runtime router marker: {marker}"
 
 health_text = paths["health"].read_text(encoding="utf-8")
 for marker in ["HealthStatus", "ailovanta-api", "get_health", "uptime_seconds"]:
@@ -138,6 +148,10 @@ for marker in ["VerificationEngine", "VerificationResult", "score_result"]:
 client_text = paths["node_client"].read_text(encoding="utf-8")
 for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_logging", "worker_loop", "Ailovanta"]:
     assert marker in client_text, f"missing node client marker: {marker}"
+
+test_text = paths["tests"].read_text(encoding="utf-8")
+for marker in ["test_runtime_router_prefers_warm_verified_runtime", "test_private_runtime_routes_only_to_trusted_pool", "/runtime/route"]:
+    assert marker in test_text, f"missing runtime test marker: {marker}"
 
 for text_path in [paths["dashboard"], paths["deployment_doc"], paths["private_core_doc"]]:
     text = text_path.read_text(encoding="utf-8")
