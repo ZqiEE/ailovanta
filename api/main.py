@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from api.dashboard import DashboardService
@@ -17,6 +19,7 @@ from api.verification import VerificationEngine
 
 APP_VERSION = "1.5.0"
 TRAINING_JOB_TYPES = {"rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"}
+BASE_DIR = Path(__file__).resolve().parents[1]
 
 app = FastAPI(title="Ailovanta API", version=APP_VERSION)
 
@@ -86,8 +89,27 @@ def root() -> dict:
         "name": "Ailovanta",
         "version": APP_VERSION,
         "tagline": "AI powered by the world's distributed compute.",
+        "app": "/app",
+        "dashboard": "/dashboard",
+        "docs": "/docs",
         "scheduler": store.status(),
     }
+
+
+@app.get("/app")
+def public_app() -> FileResponse:
+    path = BASE_DIR / "index.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="index.html not found")
+    return FileResponse(path)
+
+
+@app.get("/dashboard")
+def dashboard_app() -> FileResponse:
+    path = BASE_DIR / "dashboard.html"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="dashboard.html not found")
+    return FileResponse(path)
 
 
 @app.get("/health")
