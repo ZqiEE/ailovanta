@@ -10,6 +10,7 @@ paths = {
     "contributing": root / "CONTRIBUTING.md",
     "api": root / "api" / "main.py",
     "runtime_router": root / "api" / "runtime_router.py",
+    "runtime_store": root / "api" / "runtime_store.py",
     "health": root / "api" / "health.py",
     "storage": root / "api" / "storage.py",
     "training": root / "api" / "training.py",
@@ -44,17 +45,10 @@ for path in paths.values():
     assert path.exists(), f"missing file: {path.relative_to(root)}"
 
 version_text = paths["version"].read_text(encoding="utf-8").strip()
-assert version_text == "1.4.0-runtime-router", f"unexpected version: {version_text}"
+assert version_text == "1.5.0-runtime-store", f"unexpected version: {version_text}"
 
 html = paths["index"].read_text(encoding="utf-8")
-for marker in [
-    "Ailovanta",
-    "AI powered by the world's distributed compute.",
-    "Ailovanta Node",
-    "API Skeleton",
-    "Training Simulator",
-    "Ailovanta AI Demo",
-]:
+for marker in ["Ailovanta", "AI powered by the world's distributed compute.", "Ailovanta Node", "API Skeleton", "Training Simulator", "Ailovanta AI Demo"]:
     assert marker in html, f"missing html marker: {marker}"
 
 readme_text = paths["readme"].read_text(encoding="utf-8")
@@ -94,40 +88,20 @@ for marker in ["Core Integration Plan", "Runtime pool interface", "Access Router
     assert marker in integration_text, f"missing integration plan marker: {marker}"
 
 changelog_text = paths["changelog"].read_text(encoding="utf-8")
-for marker in ["v1.4 Runtime Router MVP", "Ailovanta", "VERSION"]:
+for marker in ["v1.5 Runtime Store MVP", "v1.4 Runtime Router MVP", "1.5.0-runtime-store"]:
     assert marker in changelog_text, f"missing changelog marker: {marker}"
 
 api_text = paths["api"].read_text(encoding="utf-8")
-for marker in [
-    "FastAPI",
-    "FileResponse",
-    "Ailovanta API",
-    "RuntimeRegistry",
-    "RuntimeModelRegister",
-    "RuntimeNodeRegister",
-    "RuntimeRouteRequest",
-    "/runtime/models/register",
-    "/runtime/nodes/register",
-    "/runtime/status",
-    "/runtime/route",
-    "/app",
-    "/dashboard",
-    "/health",
-    "/ready",
-    "/network/status",
-    "/verification/status",
-    "/jobs/retry-failed",
-    "/jobs/requeue-stale",
-    "/training/jobs",
-    "/models/versions",
-    "/dashboard/summary",
-    "/ai/chat",
-]:
+for marker in ["FastAPI", "FileResponse", "Ailovanta API", "RuntimeStore", "RuntimeModelRegister", "RuntimeNodeRegister", "RuntimeRouteRequest", "/runtime/models/register", "/runtime/nodes/register", "/runtime/status", "/runtime/assignments", "/runtime/route", "/app", "/dashboard", "/health", "/ready", "/network/status", "/verification/status", "/jobs/retry-failed", "/jobs/requeue-stale", "/training/jobs", "/models/versions", "/dashboard/summary", "/ai/chat"]:
     assert marker in api_text, f"missing api marker: {marker}"
 
 router_text = paths["runtime_router"].read_text(encoding="utf-8")
 for marker in ["ModelManifest", "RuntimeNodeProfile", "RuntimeRequest", "RuntimeAssignment", "RuntimeRegistry", "has_warm_model", "privacy_level"]:
     assert marker in router_text, f"missing runtime router marker: {marker}"
+
+store_text = paths["runtime_store"].read_text(encoding="utf-8")
+for marker in ["RuntimeStore", "runtime_models", "runtime_nodes", "runtime_assignments", "list_assignments", "RuntimeRegistry"]:
+    assert marker in store_text, f"missing runtime store marker: {marker}"
 
 health_text = paths["health"].read_text(encoding="utf-8")
 for marker in ["HealthStatus", "ailovanta-api", "get_health", "uptime_seconds"]:
@@ -150,7 +124,7 @@ for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_loggin
     assert marker in client_text, f"missing node client marker: {marker}"
 
 test_text = paths["tests"].read_text(encoding="utf-8")
-for marker in ["test_runtime_router_prefers_warm_verified_runtime", "test_private_runtime_routes_only_to_trusted_pool", "/runtime/route"]:
+for marker in ["test_runtime_router_prefers_warm_verified_runtime", "test_private_runtime_routes_only_to_trusted_pool", "runtime_registry.clear", "/runtime/route"]:
     assert marker in test_text, f"missing runtime test marker: {marker}"
 
 for text_path in [paths["dashboard"], paths["deployment_doc"], paths["private_core_doc"]]:
