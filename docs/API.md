@@ -12,6 +12,13 @@ OpenAPI docs:
 http://127.0.0.1:8000/docs
 ```
 
+Public app and local dashboard:
+
+```text
+GET /app
+GET /dashboard
+```
+
 ## Health and status
 
 ```text
