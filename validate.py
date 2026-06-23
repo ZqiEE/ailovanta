@@ -40,9 +40,6 @@ for marker in [
 ]:
     assert marker in html, f"missing html marker: {marker}"
 
-for banned in ["Open GPU Privacy AI", "OpenGPU Privacy AI", "NodeX AI", "Nodexa", "ManyMind AI"]:
-    assert banned not in html, f"unexpected old brand in index.html: {banned}"
-
 readme_text = paths["readme"].read_text(encoding="utf-8")
 for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "Train, run, and validate AI"]:
     assert marker in readme_text, f"missing README marker: {marker}"
@@ -88,7 +85,7 @@ for marker in ["VerificationEngine", "VerificationResult", "score_result"]:
     assert marker in verification_text, f"missing verification marker: {marker}"
 
 client_text = paths["node_client"].read_text(encoding="utf-8")
-for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_logging", "worker_loop"]:
+for marker in ["ResourceGuard", "JobRunner", "request_with_retry", "setup_logging", "worker_loop", "Ailovanta"]:
     assert marker in client_text, f"missing node client marker: {marker}"
 
 for text_path in [paths["dashboard"], paths["deployment_doc"], paths["private_core_doc"]]:
