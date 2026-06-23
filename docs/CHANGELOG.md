@@ -1,5 +1,17 @@
 # Ailovanta Changelog
 
+## v1.5 Runtime Store MVP
+
+- Added `api/runtime_store.py`.
+- Moved runtime model registry from memory to SQLite.
+- Moved runtime node registry from memory to SQLite.
+- Added runtime assignment records.
+- Added `/runtime/assignments`.
+- Runtime status now reports storage path, route attempts, and successful routes.
+- Updated API runtime layer to use `RuntimeStore`.
+- Updated tests to clear the persistent runtime store between cases.
+- Bumped public version to `1.5.0-runtime-store`.
+
 ## v1.4 Runtime Router MVP
 
 - Added `api/runtime_router.py`.
@@ -77,15 +89,3 @@
 - Added verification records.
 - Added retry failed jobs endpoint.
 - Added requeue stale jobs endpoint.
-
-## v0.7 Scheduler Persistence
-
-- Added SQLite scheduler store.
-- Persisted nodes, jobs, results.
-
-## v0.6 Node Client Hardening
-
-- Added device detection.
-- Added resource guard.
-- Added job runner.
-- Added retry and logs.
