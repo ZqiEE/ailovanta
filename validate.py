@@ -18,6 +18,7 @@ paths = {
     "resource_guard": root / "node_client" / "resource_guard.py",
     "job_runner": root / "node_client" / "job_runner.py",
     "deployment_doc": root / "docs" / "DEPLOYMENT.md",
+    "status_doc": root / "docs" / "PROJECT_STATUS.md",
     "private_core_doc": root / "PRIVATE_CORE.md",
     "dockerfile": root / "Dockerfile",
     "tests": root / "tests" / "test_api_contract.py",
@@ -42,12 +43,16 @@ for marker in [
     assert marker in html, f"missing html marker: {marker}"
 
 readme_text = paths["readme"].read_text(encoding="utf-8")
-for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "Train, run, and validate AI"]:
+for marker in ["# Ailovanta", "ailovanta.git", "ailovanta-core.git", "PROJECT_STATUS.md", "Train, run, and validate AI"]:
     assert marker in readme_text, f"missing README marker: {marker}"
 
 brand_text = paths["brand"].read_text(encoding="utf-8")
 for marker in ["Ailovanta", "Ailovanta Core", "H-SwarmTrain", "ailovanta.git", "ailovanta-core.git"]:
     assert marker in brand_text, f"missing brand marker: {marker}"
+
+status_text = paths["status_doc"].read_text(encoding="utf-8")
+for marker in ["Current stage", "Done in the public repository", "Not done yet", "Safe public claim"]:
+    assert marker in status_text, f"missing status marker: {marker}"
 
 api_text = paths["api"].read_text(encoding="utf-8")
 for marker in [
