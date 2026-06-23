@@ -47,6 +47,39 @@ POST /models/versions
 GET  /models/versions
 ```
 
+## Model runtime architecture
+
+Ailovanta must solve storage and runtime separately.
+
+Model storage:
+
+```text
+model manifest
+-> chunk hashes
+-> distributed artifact cache
+-> node cache / mirrors / storage providers / seed fallback
+```
+
+Model runtime:
+
+```text
+request
+-> access router
+-> warm runtime pool
+-> verified model chunks
+-> inference / training task
+-> validation
+-> usage and reputation record
+```
+
+The best design is not one central model server. The best design is verified model manifests, distributed artifact cache, warm runtime pools, and trust through hashes plus validation.
+
+See:
+
+```text
+docs/MODEL_RUNTIME_ARCHITECTURE.md
+```
+
 ## Storage
 
 The public MVP uses SQLite through `SchedulerStore`.
