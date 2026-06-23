@@ -137,6 +137,7 @@ Ailovanta should not pretend the hardest part is solved. The current realistic p
 - `BRAND.md` — brand rules
 - `SECURITY_BOUNDARY.md` — public/private boundary
 - `PRIVATE_CORE.md` — private core plan
+- `docs/PROJECT_STATUS.md` — current done/not-done boundary
 - `docs/LOCAL_RUNTIME.md` — local run guide
 - `docs/API.md` — local API reference
 - `docs/ARCHITECTURE.md` — system overview
