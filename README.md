@@ -37,6 +37,8 @@ https://github.com/ZqiEE/ailovanta-core.git
 - Public landing page: `index.html`
 - Local dashboard: `dashboard.html`
 - FastAPI runtime: `api/main.py`
+- Served app route: `/app`
+- Served dashboard route: `/dashboard`
 - SQLite scheduler store
 - Node registration and heartbeat
 - Job queue and result submission
@@ -77,10 +79,12 @@ python -m pytest -q
 uvicorn api.main:app --reload
 ```
 
-Open the API docs:
+Open after the API starts:
 
 ```text
-http://127.0.0.1:8000/docs
+API docs:  http://127.0.0.1:8000/docs
+App:       http://127.0.0.1:8000/app
+Dashboard: http://127.0.0.1:8000/dashboard
 ```
 
 Run a local node in another terminal:
