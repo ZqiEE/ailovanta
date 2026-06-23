@@ -1,150 +1,112 @@
 # Ailovanta Auth Model
 
-Ailovanta should not use only wallet login, only GitHub login, or only a social login.
-
-The primary product account should be an Ailovanta account.
-
-## Account types
+Current MVP login method:
 
 ```text
-Ailovanta User
-- regular chat/API user
-- owns conversations, API keys, usage, billing records
-
-Ailovanta Workspace
-- team or company account
-- owns members, projects, policies, quotas, billing
-
-Ailovanta Node Operator
-- user or company that contributes runtime, storage, bandwidth, or validation capacity
-- links runtime nodes, payout profile, reputation, and verification records
-
-Ailovanta Admin
-- internal operator role
-- manages abuse, model registry, node registry, billing, and incidents
+GitHub OAuth only
 ```
 
-## Login methods
+Ailovanta should use GitHub login first because the first real users are expected to be developers, node operators, and technical testers.
 
-### Primary login
+Do not add email login, phone login, wallet login, or paid billing login yet.
+
+## Current account model
 
 ```text
-Email + passwordless magic code/link
+GitHub account
+  -> Ailovanta user
+      -> local session
+      -> conversations
+      -> API usage
+      -> future workspace/project records
 ```
 
-Reason:
-
-- works globally
-- works for normal users and companies
-- avoids password storage risk in the early MVP
-- easier than forcing Web3 wallets
-- easier than forcing GitHub
-
-### Optional login providers
+## Implemented local endpoints
 
 ```text
-Google OAuth
-GitHub OAuth
-Apple Sign In
+GET  /auth/github/login
+GET  /auth/github/callback
+GET  /auth/me
+POST /auth/logout
 ```
 
-Use these as convenience login methods, not as the core identity system.
-
-### Web3 wallet
+## Required environment variables
 
 ```text
-Wallet connect / EVM / Solana / other chains
+GITHUB_CLIENT_ID
+GITHUB_CLIENT_SECRET
+GITHUB_REDIRECT_URI
 ```
 
-Wallet should be linked after account creation.
-
-Do not make wallet the only login method.
-
-Wallet is mainly for:
-
-- node operator payout identity
-- contribution proof
-- reward ledger
-- staking / slashing in later phases
-- signed ownership checks
-
-## Best default registration flow
+Default local redirect URI:
 
 ```text
-1. User enters email
-2. Ailovanta sends magic code/link
-3. User signs in
-4. System creates personal workspace
-5. User can create API key
-6. User can optionally link Google/GitHub/wallet
-7. User can optionally become node operator
+http://127.0.0.1:8000/auth/github/callback
 ```
 
-## Enterprise flow
+## Login flow
 
 ```text
-1. Admin creates workspace
-2. Admin verifies company email domain
-3. Admin invites members
-4. Members join by email or SSO
-5. Workspace sets region, quota, model policy, and billing
-6. Enterprise can request dedicated runtime pool
+1. User clicks Login with GitHub.
+2. Ailovanta creates an OAuth state.
+3. Ailovanta returns a GitHub authorization URL.
+4. User authorizes on GitHub.
+5. GitHub redirects to /auth/github/callback.
+6. Ailovanta exchanges code for GitHub profile.
+7. Ailovanta creates or updates local user.
+8. Ailovanta creates local session token.
+9. Client stores session token and sends it as Bearer token.
 ```
 
-## Node operator flow
+## Session usage
+
+After login, the client uses:
 
 ```text
-1. User signs in with Ailovanta account
-2. User creates node operator profile
-3. User links payout identity or wallet
-4. User downloads node client
-5. Node registers with node token
-6. Node starts reporting capability and heartbeat
-7. Reputation grows from verified work
+Authorization: Bearer sess_xxx
 ```
 
-## Identity hierarchy
+Then it can call:
 
 ```text
-User
-  -> Workspaces
-      -> Projects
-          -> API Keys
-          -> Conversations
-          -> Runtime policies
-          -> Usage records
-  -> Node operator profile
-      -> Runtime nodes
-      -> Reputation
-      -> Reward records
-      -> Payout identity
+GET /auth/me
+POST /auth/logout
 ```
 
-## What not to do
-
-Do not require GitHub login for normal users.
-
-Do not require wallet login for normal users.
-
-Do not let API keys belong only to a personal user. API keys should belong to a project under a workspace.
-
-Do not mix user login token with node runtime token. A human account token and a machine node token are different things.
-
-Do not put private keys, wallet seed phrases, or payout secrets in the Ailovanta database.
-
-## MVP implementation target
-
-The first useful implementation should support:
+## Current database tables
 
 ```text
+auth_states
 users
-workspaces
-workspace_members
-projects
-api_keys
 sessions
-node_operator_profiles
-node_tokens
 ```
 
-MVP login can start with local email-code simulation for development. Production should connect a real email provider later.
+## What not to do yet
+
+Do not add email/password.
+
+Do not add magic email links.
+
+Do not add phone login.
+
+Do not add wallet login as the default account identity.
+
+Do not add payment login.
+
+Do not expose GitHub access tokens to the frontend.
+
+Do not store GitHub access tokens unless there is a clear product need later.
+
+## Future optional login methods
+
+Only add these later if the product needs them:
+
+```text
+Email magic link
+Google OAuth
+Apple Sign In
+Enterprise SSO
+Wallet link for node operator rewards
+```
+
+For now, GitHub login is enough and keeps the MVP focused.
