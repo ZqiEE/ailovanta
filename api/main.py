@@ -11,6 +11,7 @@ from api.dashboard import DashboardService
 from api.health import get_health
 from api.memory_store import MemoryStore
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
+from api.openai_compat import ChatCompletionRequest, build_chat_completion_response, extract_user_prompt
 from api.reputation import ReputationService
 from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRequest
 from api.runtime_store import RuntimeStore
@@ -139,6 +140,7 @@ def root() -> dict:
         "app": "/app",
         "dashboard": "/dashboard",
         "docs": "/docs",
+        "openai_compatible": "/v1/chat/completions",
         "scheduler": store.status(),
         "runtime": runtime_registry.status(),
     }
@@ -323,6 +325,21 @@ def chat(body: ChatRequest) -> dict:
     if body.remember:
         memories.add(body.prompt, body.user_id)
     return {"answer": answer, "source": source}
+
+
+@app.post("/v1/chat/completions")
+def openai_chat_completions(body: ChatCompletionRequest) -> dict:
+    if body.stream:
+        raise HTTPException(status_code=400, detail="streaming is not supported in this local MVP yet")
+    prompt = extract_user_prompt(body.messages)
+    if not prompt:
+        raise HTTPException(status_code=400, detail="at least one user message is required")
+    try:
+        answer = ollama.chat(prompt, "open", [])
+    except OllamaUnavailable:
+        answer = "Ailovanta local fallback: connect Ollama or another local runtime to enable real model responses."
+    usage_store.record(body.user or "openai-compatible", "chat.completions", 1, body.model, {"endpoint": "/v1/chat/completions"})
+    return build_chat_completion_response(body.model, answer, prompt)
 
 
 @app.get("/usage/summary")
