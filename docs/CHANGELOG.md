@@ -1,5 +1,23 @@
 # Ailovanta Changelog
 
+## v1.4 Runtime Router MVP
+
+- Added `api/runtime_router.py`.
+- Added runtime model manifest registry.
+- Added runtime node profile registry.
+- Added warm/cold cache-aware runtime routing.
+- Added privacy-aware routing for private models.
+- Added `/runtime/models/register`.
+- Added `/runtime/models`.
+- Added `/runtime/nodes/register`.
+- Added `/runtime/nodes`.
+- Added `/runtime/status`.
+- Added `/runtime/route`.
+- Added tests for warm runtime preference.
+- Added tests for private model routing to trusted pools only.
+- Updated API docs with runtime router examples.
+- Bumped public version to `1.4.0-runtime-router`.
+
 ## v1.3 Public MVP Finalization
 
 - Renamed the public project to Ailovanta.
