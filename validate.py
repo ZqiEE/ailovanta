@@ -22,6 +22,7 @@ paths = {
     "deployment_doc": root / "docs" / "DEPLOYMENT.md",
     "status_doc": root / "docs" / "PROJECT_STATUS.md",
     "launch_doc": root / "docs" / "PUBLIC_LAUNCH_CHECKLIST.md",
+    "repo_settings_doc": root / "docs" / "REPOSITORY_SETTINGS.md",
     "technical_doc": root / "docs" / "TECHNICAL_OVERVIEW.md",
     "integration_doc": root / "docs" / "CORE_INTEGRATION_PLAN.md",
     "changelog": root / "docs" / "CHANGELOG.md",
@@ -73,6 +74,10 @@ for marker in ["Current stage", "Done in the public repository", "Not done yet",
 launch_text = paths["launch_doc"].read_text(encoding="utf-8")
 for marker in ["Public Launch Checklist", "python validate.py", "Safe public claim"]:
     assert marker in launch_text, f"missing launch checklist marker: {marker}"
+
+repo_settings_text = paths["repo_settings_doc"].read_text(encoding="utf-8")
+for marker in ["Repository Settings", "ailovanta", "Branch protection", "Ailovanta CI"]:
+    assert marker in repo_settings_text, f"missing repo settings marker: {marker}"
 
 technical_text = paths["technical_doc"].read_text(encoding="utf-8")
 for marker in ["Ailovanta Technical Overview", "Job lifecycle", "Training lifecycle", "Public/core split"]:
