@@ -6,6 +6,18 @@ Ailovanta is the public shell for a distributed AI compute network.
 
 This repository is for public demos, public docs, SDK/interface examples, and the public node shell. It does not contain the private production core.
 
+## Repository
+
+```bash
+git clone https://github.com/ZqiEE/ailovanta.git
+```
+
+Private core repository:
+
+```text
+https://github.com/ZqiEE/ailovanta-core.git
+```
+
 ## Positioning
 
 Ailovanta is built around one simple idea:
