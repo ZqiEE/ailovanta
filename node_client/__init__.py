@@ -1,1 +1,1 @@
-"""Open GPU Privacy AI local node client package."""
+"""Ailovanta local node client package."""
