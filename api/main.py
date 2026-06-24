@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from api.ailovanta_native import AilovantaRunRequest, build_run_result
 from api.auth_store import AuthStore
+from api.conversation_context import build_chat_context
 from api.conversation_store import ConversationStore
 from api.dashboard import DashboardService
 from api.github_auth import GitHubAuthConfigError, build_github_login_url, exchange_code_for_token, fetch_github_profile
@@ -449,18 +450,20 @@ def delete_conversation(conversation_id: str) -> dict:
 def ailovanta_chat(body: NativeChatRequest) -> dict:
     convo = conversations.get_or_create(body.conversation_id, body.user_id, body.title)
     conversations.add_message(convo["id"], "user", body.prompt, source="user", model_id=body.model_id)
+    recent_messages = conversations.list_messages(convo["id"], limit=24)
+    context_messages = build_chat_context(recent_messages, body.prompt, max_messages=12)
     route = {"assigned": False, "reason": "runtime routing not requested"}
     if body.use_runtime_router:
         route = runtime_registry.route(RuntimeRequest(request_id=f"chat-{convo['id']}", model_id=body.model_id, version=body.version, region_hint="auto"))
     try:
-        answer = ollama.chat(body.prompt, "open", [])
+        answer = ollama.chat_messages(context_messages, "open", [])
         source = "ollama"
     except OllamaUnavailable:
         answer = "Ailovanta local fallback: connect Ollama or a registered runtime to enable real model responses."
         source = "fallback"
     assistant_message = conversations.add_message(convo["id"], "assistant", answer, source=source, model_id=body.model_id)
-    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id})
-    return {"conversation_id": convo["id"], "answer": answer, "source": source, "runtime_route": route, "assistant_message": assistant_message}
+    usage_store.record(body.user_id, "ailovanta.chat", 1, source, {"conversation_id": convo["id"], "model_id": body.model_id, "context_messages": len(context_messages)})
+    return {"conversation_id": convo["id"], "answer": answer, "source": source, "runtime_route": route, "assistant_message": assistant_message, "context_messages_used": len(context_messages)}
 
 
 @app.post("/ailovanta/v1/run")
