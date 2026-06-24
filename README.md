@@ -4,7 +4,18 @@
 
 > AI powered by the world's distributed compute.
 
-Ailovanta is a distributed AI compute network MVP. The public repository contains the product shell, local API, node client, demo pages, tests, and safe interface examples. The production core stays in a separate private repository.
+Ailovanta is a distributed AI compute network MVP. The current public product path is **guest-first chat**: open the app, ask a question, keep conversation history, and continue without login or payment.
+
+## Current MVP rule
+
+```text
+No required login.
+No required payment.
+No required wallet.
+Guest mode first.
+```
+
+GitHub OAuth and payment docs may exist for later, but they are not the default user path.
 
 ## What it is
 
@@ -18,20 +29,38 @@ people run useful machines
 -> useful contributors earn access and reputation
 ```
 
-The current repository is not claiming a finished global training network. It is a working local foundation for the public layer: native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, and local AI fallback.
+The repository is not claiming a finished global training network. It is a working local foundation for the public layer: guest chat, persistent conversations, native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, and local AI fallback.
 
-## API direction
-
-Ailovanta Native Run API is the main protocol:
+## Main user path
 
 ```text
-POST /ailovanta/v1/run
+1. Open /app.
+2. Browser creates guest_id.
+3. User sends a message.
+4. Frontend calls POST /ailovanta/v1/chat.
+5. Backend creates or reuses conversation_id.
+6. Backend saves user and assistant messages.
+7. Backend uses recent conversation history for follow-up turns.
+8. User can reload, continue, load, or delete conversations.
 ```
 
-The compatibility chat endpoint is kept for existing client integrations:
+## Main APIs
 
 ```text
+POST /ailovanta/v1/chat
+GET  /ailovanta/v1/conversations
+GET  /ailovanta/v1/conversations/{conversation_id}/messages
+DELETE /ailovanta/v1/conversations/{conversation_id}
+
+POST /ailovanta/v1/run
 POST /v1/chat/completions
+
+GET  /reputation/leaderboard
+GET  /reputation/summary
+
+POST /usage/events
+GET  /usage/events
+GET  /usage/summary
 ```
 
 ## Repositories
@@ -50,32 +79,29 @@ https://github.com/ZqiEE/ailovanta-core.git
 
 ## Current MVP features
 
-- Public landing page: `index.html`
-- Local dashboard: `dashboard.html`
-- FastAPI runtime: `api/main.py`
-- Served app route: `/app`
-- Served dashboard route: `/dashboard`
+- Guest-first chat UI in `index.html`
+- No login wall and no payment wall
+- Browser `guest_id`
+- Conversation list, load, new chat, and delete chat
+- Native chat endpoint: `/ailovanta/v1/chat`
 - Native run endpoint: `/ailovanta/v1/run`
+- Persistent conversation store
+- Conversation context builder
+- Ollama adapter with chat-history support
 - Compatibility chat endpoint: `/v1/chat/completions`
-- SQLite scheduler store
+- Runtime model manifest registry
+- Runtime node registry
+- Runtime assignment history
+- Warm-cache, trust, privacy, latency, price, and GPU-memory-aware Runtime Router
 - Node registration and heartbeat
 - Job queue and result submission
 - Lightweight result verification
-- Runtime model manifest registry
-- Runtime node registry
-- Persistent runtime store
-- Runtime assignment history
-- Warm-cache, trust, privacy, latency, price, and GPU-memory-aware Runtime Router
-- Trust updates after verified results
-- Queue recovery endpoints
+- Reputation endpoints
+- Usage event endpoints
 - Training job planner
 - Model version registry
-- Ollama adapter with graceful fallback
-- Local memory list/add/wipe endpoints
-- Hardened local node client
 - Docker / Compose files
 - Validation script and pytest suite
-- Contribution guide and issue templates
 
 ## Quickstart
 
@@ -90,7 +116,7 @@ python -m pytest -q
 uvicorn api.main:app --reload
 ```
 
-On Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 git clone https://github.com/ZqiEE/ailovanta.git
@@ -106,95 +132,34 @@ uvicorn api.main:app --reload
 Open after the API starts:
 
 ```text
-API docs:   http://127.0.0.1:8000/docs
-App:        http://127.0.0.1:8000/app
-Dashboard:  http://127.0.0.1:8000/dashboard
-Native API: http://127.0.0.1:8000/ailovanta/v1/run
-Compat API: http://127.0.0.1:8000/v1/chat/completions
+App:       http://127.0.0.1:8000/app
+API docs:  http://127.0.0.1:8000/docs
+Dashboard: http://127.0.0.1:8000/dashboard
 ```
-
-Run a local node in another terminal:
-
-```bash
-python node_client/client.py --api-url http://127.0.0.1:8000 --contribution 30
-```
-
-Run the smoke flow after the API is running:
-
-```bash
-python scripts/smoke_api.py --api-url http://127.0.0.1:8000
-```
-
-Run the runtime demo flow after the API is running:
-
-```bash
-python scripts/demo_runtime_flow.py --api-url http://127.0.0.1:8000
-```
-
-## Core local flow
-
-```text
-POST /ailovanta/v1/run
-POST /v1/chat/completions
-POST /runtime/models/register
-POST /runtime/nodes/register
-POST /runtime/route
-GET  /runtime/assignments
-POST /nodes/register
-POST /nodes/heartbeat
-GET  /jobs/next
-POST /jobs/result
-GET  /verification/status
-GET  /network/status
-POST /training/jobs
-POST /models/versions
-GET  /dashboard/summary
-```
-
-## Public / private boundary
-
-Public repository = product shell, public client, local MVP, demos, docs, tests, and safe interfaces.
-
-Private core repository = core routing, validation, scoring, orchestration, and operator logic.
-
-H-SwarmTrain remains the core algorithm family name.
-
-## Project discipline
-
-Ailovanta should not pretend the hardest part is solved. The current realistic path is:
-
-1. Make the public shell clean and runnable.
-2. Keep sensitive core logic outside the public repository.
-3. Start with short, verifiable jobs.
-4. Add stronger scheduling, verification, and worker isolation.
-5. Connect the public shell to Ailovanta Core.
-6. Move from local MVP to controlled testnet.
-
-## Docs
-
-- `VERSION` — current public MVP version
-- `BRAND.md` — brand rules
-- `CONTRIBUTING.md` — contribution guide
-- `SECURITY_BOUNDARY.md` — public/private boundary
-- `PRIVATE_CORE.md` — private core plan
-- `docs/CHANGELOG.md` — release history
-- `docs/PROJECT_STATUS.md` — current done/not-done boundary
-- `docs/PUBLIC_LAUNCH_CHECKLIST.md` — public launch checklist
-- `docs/NATIVE_RUN_API.md` — native run API guide
-- `docs/V1_CHAT_API.md` — compatibility chat API guide
-- `docs/RUNTIME_DEMO.md` — runtime demo guide
-- `docs/TECHNICAL_OVERVIEW.md` — technical overview
-- `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
-- `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
-- `docs/LOCAL_RUNTIME.md` — local run guide
-- `docs/API.md` — local API reference
-- `docs/ARCHITECTURE.md` — system overview
-- `docs/ROADMAP.md` — roadmap
-- `docs/DEVELOPER_HANDOFF.md` — developer handoff
 
 ## Local check
 
 ```bash
 python validate.py
 python -m pytest -q
+```
+
+## Docs
+
+- `docs/NEXT_STAGE_PRD.md` — guest chat core product requirements
+- `docs/NEXT_STAGE_CODEX_TASKS.md` — execution plan for guest chat core
+- `docs/AUTH_MODEL.md` — guest-first access model
+- `docs/PAYMENT_MODEL.md` — payment deferred model
+- `docs/NATIVE_RUN_API.md` — native run API guide
+- `docs/V1_CHAT_API.md` — compatibility chat API guide
+- `docs/RUNTIME_DEMO.md` — runtime demo guide
+- `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
+- `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
+
+## Final product principle
+
+```text
+First prove value.
+Then add identity.
+Then add payment.
 ```
