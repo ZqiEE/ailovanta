@@ -6,6 +6,8 @@ Current MVP login method:
 GitHub OAuth only
 ```
 
+This document matches the current `1.9.0-github-auth` MVP.
+
 ## GitHub OAuth app
 
 Create a GitHub OAuth App and set callback URL to:
