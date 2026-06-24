@@ -46,7 +46,7 @@ version = (root / "VERSION").read_text(encoding="utf-8").strip()
 assert version in {"1.9.0-github-auth", "1.10.0-guest-first", "1.11.0"}, f"unexpected version: {version}"
 
 checks = {
-    "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList", "Model adapter", "Fallback: enabled"],
+    "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList", "Model adapter", "Fallback: enabled", "Enter to send", "Shift+Enter", "Thinking..."],
     "api/sqlite_utils.py": ["ClosingConnection", "connect_sqlite", "self.close()"],
     "api/health.py": ["local_model", "ollama", "base_url", "fallback"],
     "api/main.py": [
@@ -68,7 +68,7 @@ checks = {
     "docs/PAYMENT_MODEL.md": ["No payment required", "No paywall", "First prove value"],
     "docs/NEXT_STAGE_PRD.md": ["Guest Chat Core", "多轮上下文注入", "无登录墙", "无付费墙"],
     "tests/test_conversation_context.py": ["build_chat_context", "context_to_text"],
-    "tests/test_frontend_markers.py": ["conversationList", "No login required", "context_messages_used"],
+    "tests/test_frontend_markers.py": ["conversationList", "No login required", "Enter to send", "Thinking..."],
     "tests/test_guest_chat_flow.py": ["context_messages_used", "/ailovanta/v1/conversations", "/reputation/leaderboard"],
     "tests/test_health_model_status.py": ["local_model", "ollama", "base_url"],
     "tests/test_sqlite_utils.py": ["connect_sqlite", "os.remove"],
