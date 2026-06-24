@@ -1,27 +1,46 @@
-# Ailovanta Auth Model
+# Ailovanta Access Model
 
-Current MVP login method:
-
-```text
-GitHub OAuth only
-```
-
-Ailovanta should use GitHub login first because the first real users are expected to be developers, node operators, and technical testers.
-
-Do not add email login, phone login, wallet login, or paid billing login yet.
-
-## Current account model
+Current MVP access method:
 
 ```text
-GitHub account
-  -> Ailovanta user
-      -> local session
-      -> conversations
-      -> API usage
-      -> future workspace/project records
+Guest mode first
 ```
 
-## Implemented local endpoints
+Ailovanta should not require login, payment, wallet connection, or GitHub OAuth for the first user experience.
+
+The first version should let people open the product and use the chat immediately.
+
+## Current first-use flow
+
+```text
+1. User opens Ailovanta.
+2. User can send a message immediately.
+3. Ailovanta creates a local guest id in the browser or API client.
+4. Conversations are stored under the guest id.
+5. User sees value before being asked to create an account.
+```
+
+## Why login is deferred
+
+```text
+Login before value adds friction.
+Payment before value kills conversion.
+Wallet before value confuses normal users.
+GitHub-only login limits the audience too early.
+```
+
+## Current product rule
+
+```text
+No required login.
+No required payment.
+No required wallet.
+No required GitHub account.
+```
+
+## Optional technical endpoints
+
+The repository may still contain GitHub OAuth backend endpoints for later developer mode:
 
 ```text
 GET  /auth/github/login
@@ -30,83 +49,53 @@ GET  /auth/me
 POST /auth/logout
 ```
 
-## Required environment variables
+These are not the default user path.
+
+## Identity model for MVP
 
 ```text
-GITHUB_CLIENT_ID
-GITHUB_CLIENT_SECRET
-GITHUB_REDIRECT_URI
+Guest User
+  -> guest_id
+  -> conversations
+  -> local usage records
+
+Future Account
+  -> optional GitHub login
+  -> optional workspace
+  -> optional API keys
+  -> optional billing
 ```
 
-Default local redirect URI:
+## When to add login later
+
+Add login only after users need one of these:
 
 ```text
-http://127.0.0.1:8000/auth/github/callback
+sync across devices
+save long-term history
+create API keys
+join a workspace
+run a node
+access private models
+manage billing
 ```
 
-## Login flow
+## What not to do now
+
+Do not force GitHub login for the first chat.
+
+Do not force email login for the first chat.
+
+Do not force wallet login for the first chat.
+
+Do not show a payment wall before the user gets value.
+
+Do not make auth the center of the product before the product itself feels useful.
+
+## Final rule
 
 ```text
-1. User clicks Login with GitHub.
-2. Ailovanta creates an OAuth state.
-3. Ailovanta returns a GitHub authorization URL.
-4. User authorizes on GitHub.
-5. GitHub redirects to /auth/github/callback.
-6. Ailovanta exchanges code for GitHub profile.
-7. Ailovanta creates or updates local user.
-8. Ailovanta creates local session token.
-9. Client stores session token and sends it as Bearer token.
+First prove value.
+Then ask for identity.
+Then ask for payment.
 ```
-
-## Session usage
-
-After login, the client uses:
-
-```text
-Authorization: Bearer sess_xxx
-```
-
-Then it can call:
-
-```text
-GET /auth/me
-POST /auth/logout
-```
-
-## Current database tables
-
-```text
-auth_states
-users
-sessions
-```
-
-## What not to do yet
-
-Do not add email/password.
-
-Do not add magic email links.
-
-Do not add phone login.
-
-Do not add wallet login as the default account identity.
-
-Do not add payment login.
-
-Do not expose GitHub access tokens to the frontend.
-
-Do not store GitHub access tokens unless there is a clear product need later.
-
-## Future optional login methods
-
-Only add these later if the product needs them:
-
-```text
-Email magic link
-Google OAuth
-Apple Sign In
-Enterprise SSO
-Wallet link for node operator rewards
-```
-
-For now, GitHub login is enough and keeps the MVP focused.
