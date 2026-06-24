@@ -5,6 +5,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+from api.foundation_job_export import export_foundation_job
 from api.foundation_job_store import FoundationJobStore
 
 router = APIRouter(prefix="/foundation/jobs", tags=["foundation-jobs"])
@@ -42,3 +43,11 @@ def get_foundation_job(job_id: str) -> dict:
     if not job:
         raise HTTPException(status_code=404, detail="foundation job not found")
     return {"foundation_job": job}
+
+
+@router.post("/{job_id}/export")
+def export_job(job_id: str) -> dict:
+    try:
+        return {"ok": True, "export": export_foundation_job(job_id, store=foundation_jobs)}
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
