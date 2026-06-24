@@ -9,6 +9,7 @@ required_files = [
     "api/main.py",
     "api/auth_store.py",
     "api/github_auth.py",
+    "api/sqlite_utils.py",
     "api/conversation_context.py",
     "api/conversation_store.py",
     "api/ailovanta_native.py",
@@ -27,6 +28,7 @@ required_files = [
     "tests/test_frontend_markers.py",
     "tests/test_guest_chat_flow.py",
     "tests/test_health_model_status.py",
+    "tests/test_sqlite_utils.py",
     "tests/test_github_auth_api.py",
     "tests/test_conversations_api.py",
     "tests/test_native_run_api.py",
@@ -45,6 +47,7 @@ assert version in {"1.9.0-github-auth", "1.10.0-guest-first", "1.11.0"}, f"unexp
 
 checks = {
     "index.html": ["guest mode", "No login required", "No payment required", "/ailovanta/v1/chat", "guest_id", "conversationList", "Model adapter", "Fallback: enabled"],
+    "api/sqlite_utils.py": ["ClosingConnection", "connect_sqlite", "self.close()"],
     "api/health.py": ["local_model", "ollama", "base_url", "fallback"],
     "api/main.py": [
         "build_chat_context",
@@ -56,10 +59,11 @@ checks = {
         "/usage/events",
     ],
     "api/conversation_context.py": ["build_chat_context", "context_to_text", "max_messages"],
-    "api/conversation_store.py": ["ConversationStore", "conversations", "conversation_messages", "add_message"],
+    "api/conversation_store.py": ["connect_sqlite", "ConversationStore", "conversations", "conversation_messages", "add_message"],
+    "api/runtime_store.py": ["connect_sqlite", "RuntimeStore", "runtime_models", "runtime_nodes"],
     "api/ollama_adapter.py": ["chat_messages", "conversation history", "Use the provided conversation history"],
     "api/reputation.py": ["ReputationService", "leaderboard", "summary", "reputation_score"],
-    "api/usage_store.py": ["UsageStore", "usage_events", "record", "list_events"],
+    "api/usage_store.py": ["connect_sqlite", "UsageStore", "usage_events", "record", "list_events"],
     "docs/AUTH_MODEL.md": ["Guest mode first", "No required login", "First prove value"],
     "docs/PAYMENT_MODEL.md": ["No payment required", "No paywall", "First prove value"],
     "docs/NEXT_STAGE_PRD.md": ["Guest Chat Core", "多轮上下文注入", "无登录墙", "无付费墙"],
@@ -67,6 +71,7 @@ checks = {
     "tests/test_frontend_markers.py": ["conversationList", "No login required", "context_messages_used"],
     "tests/test_guest_chat_flow.py": ["context_messages_used", "/ailovanta/v1/conversations", "/reputation/leaderboard"],
     "tests/test_health_model_status.py": ["local_model", "ollama", "base_url"],
+    "tests/test_sqlite_utils.py": ["connect_sqlite", "os.remove"],
     "tests/test_reputation.py": ["/reputation/leaderboard", "/reputation/summary"],
     "tests/test_usage_api.py": ["/usage/events", "/usage/summary"],
 }
