@@ -1,30 +1,60 @@
 # Ailovanta Payment Model
 
-Ailovanta should separate customer payments from node payouts.
-
-Do not make crypto the primary payment method for normal customers.
-
-## Payment roles
+Current MVP payment method:
 
 ```text
-Customer payment
-- user pays Ailovanta for chat, API usage, workspace seats, or enterprise runtime
-
-Workspace billing
-- company pays for projects, members, quotas, usage, and dedicated runtime pool
-
-Node payout
-- Ailovanta pays node operators for verified runtime, storage, bandwidth, or validation work
-
-Reward ledger
-- records contribution, proof, score, reputation, and later tokenized rewards
+No payment required
 ```
 
-## Best customer payment methods
+Ailovanta should not ask for money before the user understands the product value.
 
-### MVP customer payments
+The first version should be easy to try:
 
-Use normal SaaS payments first:
+```text
+open product
+start guest chat
+see value
+come back later
+then consider account or payment
+```
+
+## Current product rule
+
+```text
+No paywall.
+No subscription wall.
+No card collection.
+No crypto checkout.
+No wallet requirement.
+No enterprise invoice flow in the first-use path.
+```
+
+## Why payment is deferred
+
+```text
+Payment before value reduces conversion.
+Wallet before value confuses normal users.
+Pricing before product proof distracts from the core experience.
+Billing before retention creates unnecessary complexity.
+```
+
+## What stays for later
+
+Ailovanta can add payment only after people already use it and need more capacity:
+
+```text
+more messages
+API credits
+saved history
+workspace/team usage
+private runtime pool
+node operator payout
+enterprise deployment
+```
+
+## Future customer payment methods
+
+When payment is needed later, use normal SaaS payments first:
 
 ```text
 Card
@@ -33,95 +63,18 @@ Local payment methods where supported
 Bank transfer for enterprise invoices
 ```
 
-This is the fastest path for real users and companies.
-
-### Global billing provider
-
-Ailovanta should start with a mature payment provider instead of building payment rails.
-
-Recommended early choices:
+Use a mature billing provider later instead of building payment rails too early:
 
 ```text
 Stripe Billing
 Paddle Billing / Merchant of Record option
 ```
 
-Use Stripe when Ailovanta wants more control over the payment stack.
+## Future node payout model
 
-Use Paddle-style merchant-of-record billing when Ailovanta wants tax and SaaS billing handled by the provider.
-
-## Payment products
+Node payout is separate from customer payment.
 
 ```text
-Free plan
-- limited daily messages
-- limited local demo usage
-
-Pro plan
-- monthly subscription
-- higher message quota
-- higher API quota
-
-Developer plan
-- usage-based API credits
-- project API keys
-- runtime route history
-
-Team plan
-- workspace members
-- shared projects
-- team billing
-
-Enterprise plan
-- invoice / bank transfer
-- custom contract
-- region policy
-- dedicated runtime pool
-- support SLA
-
-Node operator payout
-- separate payout profile
-- payout identity / wallet link
-- node reputation records
-```
-
-## What wallet is for
-
-Wallet should not be the default user payment method.
-
-Wallet should be used for:
-
-```text
-node operator identity
-reward records
-contribution proof
-future staking / slashing
-optional crypto payout
-optional ecosystem credits
-```
-
-## What wallet is not for
-
-```text
-Do not force normal chat users to pay with crypto.
-Do not force enterprise users to pay with crypto.
-Do not store seed phrases or private keys.
-Do not mix wallet identity with human login token.
-Do not use a token before the product has real demand.
-```
-
-## Best billing architecture
-
-```text
-User
-  -> Workspace
-      -> Project
-          -> API Keys
-          -> Usage Events
-          -> Credits
-          -> Invoices
-          -> Payment Customer ID
-
 Node Operator
   -> Runtime Nodes
   -> Work Receipts
@@ -130,82 +83,34 @@ Node Operator
   -> Reward Records
 ```
 
-## MVP tables
+Wallets can be optional later for:
 
 ```text
-billing_customers
-plans
-subscriptions
-usage_events
-credit_balances
-invoices
-payment_events
-node_payout_profiles
-node_reward_records
+node operator identity
+reward records
+contribution proof
+optional crypto payout
+optional ecosystem credits
 ```
 
-## Revenue model
+## What not to do now
 
-Ailovanta should support three billing modes:
+Do not force normal chat users to pay.
 
-```text
-Subscription
-- monthly plan for normal users and small teams
+Do not force enterprise users to pay before there is a clear enterprise product.
 
-Usage-based credits
-- API usage and runtime usage
+Do not force users to pay with crypto.
 
-Enterprise invoice
-- custom contract, dedicated runtime pool, region controls
-```
+Do not store seed phrases or private keys.
 
-## Payment flow
+Do not use a token before the product has real demand.
 
-```text
-1. User creates Ailovanta account
-2. System creates personal workspace
-3. User selects plan or buys credits
-4. Payment provider handles checkout
-5. Webhook confirms payment
-6. Ailovanta updates subscription or credit balance
-7. API usage consumes quota or credits
-8. Invoices and usage events stay attached to workspace/project
-```
+Do not make billing the center of the MVP.
 
-## Node payout flow
+## Final rule
 
 ```text
-1. Node operator signs in
-2. Operator creates payout profile
-3. Operator links payout method or wallet
-4. Node completes verified work
-5. Ailovanta records work receipt
-6. Reputation updates
-7. Reward balance updates
-8. Payout happens on a scheduled cycle
-```
-
-## Mobile app rule
-
-If Ailovanta sells digital AI subscriptions inside iOS or Android apps, app store payment rules may apply.
-
-The safest MVP path is:
-
-```text
-Web checkout first
-Mobile app login second
-Enterprise web billing separately
-```
-
-## Final principle
-
-Customer payments should be boring and reliable.
-
-Node rewards can be innovative.
-
-```text
-Users pay with normal money.
-Companies pay by card or invoice.
-Nodes earn through verified contribution records.
-Wallets are optional identity and payout links, not the default product checkout.
+First prove value.
+Then add identity.
+Then add payment.
 ```
