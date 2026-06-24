@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from api.sqlite_utils import connect_sqlite
 from api.task_router import TaskRouter
 
 
@@ -28,9 +29,7 @@ class SchedulerStore:
         self.seed_jobs()
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _init_db(self) -> None:
         with self.connect() as conn:
@@ -262,7 +261,8 @@ class SchedulerStore:
     def retry_failed_jobs(self, max_attempts: int = 3) -> dict:
         with self.connect() as conn:
             cur = conn.execute("UPDATE jobs SET status = 'queued', assigned_to = NULL, assigned_at = NULL, finished_at = NULL WHERE status = 'failed' AND attempts < ?", (max_attempts,))
-        return {"requeued_failed_jobs": cur.rowcount, "max_attempts": max_attempts}
+            rowcount = cur.rowcount
+        return {"requeued_failed_jobs": rowcount, "max_attempts": max_attempts}
 
     def requeue_stale_assigned(self, older_than_minutes: int = 30) -> dict:
         with self.connect() as conn:
@@ -276,7 +276,8 @@ class SchedulerStore:
                 """,
                 (f"-{older_than_minutes} minutes",),
             )
-        return {"requeued_stale_jobs": cur.rowcount, "older_than_minutes": older_than_minutes}
+            rowcount = cur.rowcount
+        return {"requeued_stale_jobs": rowcount, "older_than_minutes": older_than_minutes}
 
     def status(self) -> dict:
         with self.connect() as conn:
