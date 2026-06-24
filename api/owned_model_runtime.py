@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from api.worker_transport import WorkerInferenceClient, WorkerInferenceRequest, WorkerInferenceUnavailable
+
 
 PolicyMode = Literal["standard", "open_research"]
 
@@ -32,15 +34,9 @@ class OwnedModelUnavailable(RuntimeError):
 
 
 class OwnedModelRuntime:
-    """Ailovanta-owned model runtime boundary.
-
-    This class does not pretend that a third-party bootstrap model is the final
-    Ailovanta model. It only allows an answer when the runtime router returns a
-    verified Ailovanta runtime manifest.
-    """
-
-    def __init__(self, runtime_registry) -> None:
+    def __init__(self, runtime_registry, worker_client: WorkerInferenceClient | None = None) -> None:
         self.runtime_registry = runtime_registry
+        self.worker_client = worker_client or WorkerInferenceClient()
 
     def route(self, request: OwnedModelRequest) -> dict:
         from api.runtime_router import RuntimeRequest
@@ -66,16 +62,31 @@ class OwnedModelRuntime:
 
         assignment = route.get("assignment") or {}
         manifest_hash = assignment.get("model_manifest_hash")
+        runtime_id = assignment.get("runtime_id")
+        node_id = assignment.get("node_id")
         if not manifest_hash:
             raise OwnedModelUnavailable("assigned runtime has no model manifest hash")
+        if not runtime_id or not node_id:
+            raise OwnedModelUnavailable("assigned runtime is missing runtime_id or node_id")
+
+        try:
+            worker_result = self.worker_client.infer(
+                WorkerInferenceRequest(
+                    prompt=request.prompt,
+                    model_id=request.model_id,
+                    version=request.version,
+                    policy_mode=request.policy_mode,
+                    runtime_id=runtime_id,
+                    node_id=node_id,
+                    model_manifest_hash=manifest_hash,
+                )
+            )
+        except WorkerInferenceUnavailable as exc:
+            raise OwnedModelUnavailable(f"worker inference unavailable: {exc}") from exc
 
         return OwnedModelResult(
-            answer=(
-                "Ailovanta owned-model runtime is selected. "
-                "Inference handoff is ready for the verified runtime worker. "
-                "Next implementation step: attach the worker inference transport."
-            ),
-            source="ailovanta-owned-runtime",
+            answer=worker_result.answer,
+            source=worker_result.source,
             model_id=request.model_id,
             version=request.version,
             runtime_route=route,
