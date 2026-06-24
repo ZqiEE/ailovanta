@@ -115,7 +115,7 @@ required_ids = {
 missing_ids = required_ids - ui.ids
 require(not missing_ids, f"index.html missing required ids: {sorted(missing_ids)}")
 
-required_classes = {
+required_static_classes = {
     "app",
     "sidebar",
     "main",
@@ -123,11 +123,9 @@ required_classes = {
     "messages",
     "composer",
     "conversationList",
-    "bubble",
-    "avatar",
 }
-missing_classes = required_classes - ui.classes
-require(not missing_classes, f"index.html missing required classes: {sorted(missing_classes)}")
+missing_classes = required_static_classes - ui.classes
+require(not missing_classes, f"index.html missing required static classes: {sorted(missing_classes)}")
 
 required_regions = {
     "conversation-sidebar",
@@ -164,6 +162,8 @@ frontend_contract_markers = [
     "markdownLite",
     "navigator.clipboard.writeText",
     "localStorage",
+    "class=\"avatar\"",
+    "class=\"bubble\"",
 ]
 for marker in frontend_contract_markers:
     require(marker in index_html, f"index.html missing frontend contract marker: {marker}")
