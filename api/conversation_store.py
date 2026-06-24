@@ -6,6 +6,8 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
+from api.sqlite_utils import connect_sqlite
+
 Role = Literal["system", "user", "assistant"]
 
 
@@ -16,9 +18,7 @@ class ConversationStore:
         self._init_db()
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path)
-        conn.row_factory = sqlite3.Row
-        return conn
+        return connect_sqlite(self.path)
 
     def _init_db(self) -> None:
         with self.connect() as conn:
