@@ -17,6 +17,49 @@ Guest mode first.
 
 GitHub OAuth and payment docs may exist for later, but they are not the default user path.
 
+## Owned runtime loop
+
+Ailovanta now also contains a local owned-model loop scaffold. This is not a claim that a production foundation model has already been trained. It is the code path that prepares the system for real training nodes, real GPU work, real artifacts, and trusted runtime routing.
+
+Run the local loop:
+
+```bash
+python scripts/aio.py --core-path ../ailovanta-core
+```
+
+The all-in-one runner executes:
+
+```text
+preflight
+-> local plan
+-> node trust registration
+-> signed node result
+-> proof-required receipt export
+-> core checkpoint set
+-> foundation artifact v2
+-> promotion gate with proof/trust guardrails
+-> gated runtime apply
+-> final report
+```
+
+Successful output ends with:
+
+```json
+{
+  "ok": true,
+  "final": {
+    "stage": "runtime_ready"
+  }
+}
+```
+
+Important boundaries:
+
+```text
+The local loop is a code-level demo scaffold.
+Real GPU training, real remote workers, real model weights, and real chain anchoring still require production infrastructure.
+```
+
 ## Current model backend truth
 
 The current chat inference path uses a **local bootstrap runtime** through Ollama. It is not Alibaba Cloud, not DashScope, and not yet a production Ailovanta-owned foundation model.
@@ -24,16 +67,20 @@ The current chat inference path uses a **local bootstrap runtime** through Ollam
 The intended Ailovanta-owned model path is:
 
 ```text
-public training job
--> ailovanta-core H-SwarmTrain Lite round
--> validation and aggregation
--> artifact metadata
--> model version
--> runtime manifest
--> trusted runtime pool
+public learning events
+-> AutoTruth / training pack
+-> foundation plan
+-> distributed node work
+-> signed checkpoint receipts
+-> checkpoint set
+-> foundation artifact
+-> promotion gate
+-> artifact binding
+-> runtime preparation
+-> checked owned-chat
 ```
 
-See `docs/MODEL_BACKEND.md` for the exact boundary.
+See `docs/LOCAL_LOOP.md`, `docs/NODE_TRUST.md`, `docs/RFLOW.md`, and `docs/AUTO_RUNTIME.md` for the owned loop pieces.
 
 ## What it is
 
@@ -47,7 +94,7 @@ people run useful machines
 -> useful contributors earn access and reputation
 ```
 
-The repository is not claiming a finished global training network. It is a working local foundation for the public layer: guest chat, persistent conversations, native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, and local AI fallback.
+The repository is not claiming a finished global training network. It is a working local foundation for the public layer: guest chat, persistent conversations, native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, local AI fallback, and an owned-runtime loop scaffold.
 
 ## Main user path
 
@@ -79,6 +126,12 @@ GET  /reputation/summary
 POST /usage/events
 GET  /usage/events
 GET  /usage/summary
+
+POST /rflow2/run
+POST /obx2/submit
+POST /gg/run
+POST /apply/result
+POST /parcel-export/receipts
 ```
 
 ## Repositories
@@ -118,6 +171,11 @@ https://github.com/ZqiEE/ailovanta-core.git
 - Usage event endpoints
 - Training job planner
 - Model version registry
+- Proof-gated checkpoint receipts
+- Node trust registry
+- Foundation artifact binding
+- Runtime preparation diagnostics
+- Local owned-runtime loop runner
 - Docker / Compose files
 - Validation script and pytest suite
 
@@ -147,6 +205,13 @@ python -m pytest -q
 uvicorn api.main:app --reload
 ```
 
+Owned loop local check:
+
+```bash
+python scripts/preflight.py --core-path ../ailovanta-core
+python scripts/aio.py --core-path ../ailovanta-core
+```
+
 Open after the API starts:
 
 ```text
@@ -164,6 +229,10 @@ python -m pytest -q
 
 ## Docs
 
+- `docs/LOCAL_LOOP.md` — one-command local owned-runtime loop
+- `docs/NODE_TRUST.md` — node proof and trust registry
+- `docs/RFLOW.md` — receipt flow from submitted outputs to runtime path
+- `docs/AUTO_RUNTIME.md` — autonomous runtime preparation
 - `docs/MODEL_BACKEND.md` — current bootstrap model boundary and Ailovanta-owned model path
 - `docs/NEXT_STAGE_PRD.md` — guest chat core product requirements
 - `docs/NEXT_STAGE_CODEX_TASKS.md` — execution plan for guest chat core
