@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from api.owned_entry import CheckedOwnedChatRequest, checked_owned_chat
 from api.route_book import RouteBook
+from api.route_health import RouteHealth
 
 
 class DefaultOwnedChatRequest(BaseModel):
@@ -34,6 +35,17 @@ def default_owned_chat(body: DefaultOwnedChatRequest, runtime_registry) -> dict[
             "route_key": body.route_key,
             "route": None,
         }
+    health = RouteHealth().check(body.route_key)
+    if not health.get("ok"):
+        return {
+            "ok": False,
+            "answer": "Ailovanta owned model route is not healthy: " + ",".join(health.get("blockers", [])),
+            "source": "owned-route-unhealthy",
+            "owned_model_ready": False,
+            "route_key": body.route_key,
+            "active_route": route,
+            "route_health": health,
+        }
     model_id, version = split_model_key(str(route["model_key"]))
     result = checked_owned_chat(
         CheckedOwnedChatRequest(
@@ -46,4 +58,4 @@ def default_owned_chat(body: DefaultOwnedChatRequest, runtime_registry) -> dict[
         ),
         runtime_registry,
     )
-    return {**result, "route_key": body.route_key, "active_route": route}
+    return {**result, "route_key": body.route_key, "active_route": route, "route_health": health}
