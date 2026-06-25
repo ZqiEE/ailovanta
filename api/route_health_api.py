@@ -1,0 +1,28 @@
+from __future__ import annotations
+
+from typing import Any
+
+from fastapi import APIRouter
+from pydantic import BaseModel
+
+from api.route_health import RouteHealth
+
+router = APIRouter(prefix="/route-health", tags=["route-health"])
+
+
+class RouteHealthBody(BaseModel):
+    route_key: str = "owned-chat/default"
+    disable_if_bad: bool = False
+
+
+@router.post("/check")
+def check_route_health(body: RouteHealthBody) -> dict[str, Any]:
+    checker = RouteHealth()
+    if body.disable_if_bad:
+        return checker.disable_if_bad(body.route_key)
+    return checker.check(body.route_key)
+
+
+@router.get("/{route_key:path}")
+def get_route_health(route_key: str) -> dict[str, Any]:
+    return RouteHealth().check(route_key)
