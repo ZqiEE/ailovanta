@@ -4,9 +4,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
+from api.bound_runtime import ArtifactBoundRuntime, BoundRuntimeUnavailable
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 
-app = FastAPI(title="Ailovanta Worker", version="1.0.3")
+app = FastAPI(title="Ailovanta Worker", version="1.0.4")
 
 
 class InferRequest(BaseModel):
@@ -20,7 +21,7 @@ class InferRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "ailovanta-worker", "mode": "local-model-runtime"}
+    return {"ok": True, "service": "ailovanta-worker", "mode": "artifact-bound-runtime"}
 
 
 def resolve_binding(model_id: str, version: str) -> dict | None:
@@ -34,16 +35,22 @@ def resolve_binding(model_id: str, version: str) -> dict | None:
 def infer(body: InferRequest) -> dict:
     binding = resolve_binding(body.model_id, body.version)
     try:
-        from api.model_backend_client import ModelBackendClient
-
-        answer = ModelBackendClient().chat(prompt=body.prompt)
-        source = "ailovanta-worker-backend"
-    except Exception:
+        bound = ArtifactBoundRuntime().chat(body.prompt, body.model_id, body.version)
+        answer = bound["answer"]
+        source = bound["source"]
+        binding = bound.get("binding") or binding
+    except BoundRuntimeUnavailable:
         try:
-            answer = OllamaAdapter().chat(body.prompt, "open_research", [])
-            source = "ailovanta-worker-local-runtime"
-        except OllamaUnavailable as exc:
-            raise HTTPException(status_code=503, detail="model runtime unavailable: " + str(exc)) from exc
+            from api.model_backend_client import ModelBackendClient
+
+            answer = ModelBackendClient().chat(prompt=body.prompt)
+            source = "ailovanta-worker-backend"
+        except Exception:
+            try:
+                answer = OllamaAdapter().chat(body.prompt, "open_research", [])
+                source = "ailovanta-worker-local-runtime"
+            except OllamaUnavailable as exc:
+                raise HTTPException(status_code=503, detail="model runtime unavailable: " + str(exc)) from exc
 
     return {
         "answer": answer,
