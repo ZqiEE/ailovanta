@@ -26,6 +26,11 @@ class NodeConfig:
     identity_path: Path
     max_payload_bytes: int
     max_runtime_seconds: float
+    max_gpu_percent: int = 80
+    max_gpu_memory_percent: int = 80
+    max_gpu_temperature_c: int = 78
+    min_idle_seconds: int = 0
+    pause_on_battery: bool = True
 
 
 def setup_logging(log_dir: Path) -> None:
@@ -79,9 +84,21 @@ def submit_result(config: NodeConfig, node_id: str, result: dict) -> None:
     request_with_retry("POST", f"{config.api_url}/jobs/result", json=payload)
 
 
+def resource_limits(config: NodeConfig) -> ResourceLimits:
+    return ResourceLimits(
+        max_cpu_percent=config.max_cpu_percent,
+        min_free_memory_gb=config.min_free_memory_gb,
+        max_gpu_percent=config.max_gpu_percent,
+        max_gpu_memory_percent=config.max_gpu_memory_percent,
+        max_gpu_temperature_c=config.max_gpu_temperature_c,
+        min_idle_seconds=config.min_idle_seconds,
+        pause_on_battery=config.pause_on_battery,
+    )
+
+
 def worker_loop(config: NodeConfig) -> None:
     setup_logging(config.log_dir)
-    guard = ResourceGuard(ResourceLimits(config.max_cpu_percent, config.min_free_memory_gb))
+    guard = ResourceGuard(resource_limits(config))
     runner = JobRunner(TaskPolicy.default().__class__(TaskPolicy.default().allowed_job_types, config.max_payload_bytes, config.max_runtime_seconds))
     node_id = register_node(config)
     while True:
@@ -119,6 +136,11 @@ def main() -> None:
     parser.add_argument("--poll-seconds", type=int, default=5)
     parser.add_argument("--max-cpu-percent", type=int, default=70)
     parser.add_argument("--min-free-memory-gb", type=float, default=1.5)
+    parser.add_argument("--max-gpu-percent", type=int, default=80)
+    parser.add_argument("--max-gpu-memory-percent", type=int, default=80)
+    parser.add_argument("--max-gpu-temperature-c", type=int, default=78)
+    parser.add_argument("--min-idle-seconds", type=int, default=0)
+    parser.add_argument("--allow-on-battery", action="store_true")
     parser.add_argument("--log-dir", default="runtime_data/logs")
     parser.add_argument("--identity-path", default="runtime_data/node_identity.json")
     parser.add_argument("--max-payload-bytes", type=int, default=16384)
@@ -131,6 +153,11 @@ def main() -> None:
             poll_seconds=args.poll_seconds,
             max_cpu_percent=args.max_cpu_percent,
             min_free_memory_gb=args.min_free_memory_gb,
+            max_gpu_percent=args.max_gpu_percent,
+            max_gpu_memory_percent=args.max_gpu_memory_percent,
+            max_gpu_temperature_c=args.max_gpu_temperature_c,
+            min_idle_seconds=args.min_idle_seconds,
+            pause_on_battery=not args.allow_on_battery,
             log_dir=Path(args.log_dir),
             identity_path=Path(args.identity_path),
             max_payload_bytes=args.max_payload_bytes,
