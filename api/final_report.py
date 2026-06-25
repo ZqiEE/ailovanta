@@ -6,24 +6,21 @@ from typing import Any
 
 from api.ap import ok as apply_gate
 from api.g2 import eval_payload
-from api.owned_doctor import OwnedDoctor
-from api.route_book import RouteBook
+from api.route_health import RouteHealth
 
 
 def load(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def final_blockers(gate: dict[str, Any], runtime: dict[str, Any], artifact: dict[str, Any], route: dict[str, Any] | None, model_key: str) -> list[str]:
+def final_blockers(gate: dict[str, Any], artifact: dict[str, Any], route_health: dict[str, Any], model_key: str) -> list[str]:
     blockers: list[str] = []
     if not artifact.get("artifact_hash"):
         blockers.append("missing_artifact_hash")
-    if not route:
-        blockers.append("missing_active_route")
-    elif route.get("model_key") != model_key:
+    if route_health.get("model_key") and route_health.get("model_key") != model_key:
         blockers.append("active_route_model_mismatch")
     blockers.extend(str(item) for item in gate.get("blockers", []) or [])
-    blockers.extend(str(item) for item in runtime.get("blockers", []) or [])
+    blockers.extend(str(item) for item in route_health.get("blockers", []) or [])
     return sorted(set(blockers))
 
 
@@ -31,10 +28,9 @@ def report(result_path: str | Path, model_key: str = "ailovanta-owned:candidate"
     result = load(result_path)
     artifact = result.get("artifact") if isinstance(result.get("artifact"), dict) else {}
     gate = apply_gate(result_path)
-    runtime = OwnedDoctor().check(model_key)
-    route = RouteBook().active(route_key)
+    health = RouteHealth().check(route_key)
     payload = eval_payload(result)
-    blockers = final_blockers(gate, runtime, artifact, route, model_key)
+    blockers = final_blockers(gate, artifact, health, model_key)
     return {
         "ok": not blockers,
         "stage": "runtime_ready" if not blockers else "blocked",
@@ -43,8 +39,9 @@ def report(result_path: str | Path, model_key: str = "ailovanta-owned:candidate"
         "artifact_hash": artifact.get("artifact_hash"),
         "model_key": model_key,
         "route_key": route_key,
-        "active_route": route,
+        "active_route": health.get("route"),
+        "route_health": health,
         "apply_gate": gate,
-        "runtime": {"ok": runtime.get("ok"), "blockers": runtime.get("blockers")},
+        "runtime": health.get("runtime"),
         "eval_guardrails": payload.get("guardrails"),
     }
