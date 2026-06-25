@@ -4,6 +4,7 @@ This follows the original Ailovanta design:
 
 ```text
 public node client
+-> local resource guard
 -> gateway registration
 -> node admission check
 -> runtime pool registration
@@ -13,7 +14,7 @@ public node client
 -> route to verified warm runtimes
 ```
 
-It is not a design where one official server owns all compute and storage.
+It is not a design where one official server owns all compute and storage. Nodes contribute spare compute, storage, and bandwidth without taking over the user's machine.
 
 ## Start API
 
@@ -44,6 +45,49 @@ The machine becomes both:
 job worker node
 runtime pool candidate
 ```
+
+## Resource guard
+
+Ailovanta Node should only use spare resources. The local guard checks:
+
+```text
+CPU usage
+free system memory
+GPU utilization
+GPU memory usage
+GPU temperature
+Windows user idle time
+battery / plugged-in status
+```
+
+Example safe contribution modes:
+
+```bash
+# Light: only after 5 minutes idle, conservative GPU use.
+python -m node_client.client \
+  --max-cpu-percent 35 \
+  --max-gpu-percent 35 \
+  --max-gpu-memory-percent 35 \
+  --max-gpu-temperature-c 70 \
+  --min-idle-seconds 300
+
+# Balanced: default-like contribution, still pauses on heat/battery/high load.
+python -m node_client.client \
+  --max-cpu-percent 60 \
+  --max-gpu-percent 60 \
+  --max-gpu-memory-percent 60 \
+  --max-gpu-temperature-c 75 \
+  --min-idle-seconds 60
+
+# High contribution: user explicitly allows heavier work.
+python -m node_client.client \
+  --max-cpu-percent 80 \
+  --max-gpu-percent 80 \
+  --max-gpu-memory-percent 80 \
+  --max-gpu-temperature-c 78
+```
+
+Default behavior pauses on battery power. Use `--allow-on-battery` only when the user explicitly allows it.
 
 ## Pool selection
 
@@ -130,11 +174,14 @@ Do not route every request to one official server.
 Do not force every node to download every model.
 Do not trust artifact sources without hash verification.
 Do not send private/protected models to public nodes.
+Do not run heavy GPU work while the user's machine is hot, busy, or on battery.
 ```
 
 ## Next implementation steps
 
 ```text
+tiny training task shards
+checkpoint pause/resume
 validator mesh
 reward/reputation updates
 storage replica tracking
