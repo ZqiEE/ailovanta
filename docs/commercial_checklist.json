@@ -1,0 +1,50 @@
+{
+  "schema_version": "ailovanta.commercial_checklist.v1",
+  "required_before_commercial_use": [
+    "release_gate_pass",
+    "prod_ready_pass",
+    "route_health_ok",
+    "owned_chat_default_ready",
+    "valid_node_proof_required",
+    "artifact_hash_exists",
+    "anchor_record_exists",
+    "real_gpu_worker_pool",
+    "durable_artifact_storage",
+    "external_anchor_adapter",
+    "monitoring_alerting",
+    "backup_recovery",
+    "abuse_controls",
+    "security_review"
+  ],
+  "local_scaffold_done": [
+    "node_proof",
+    "node_trust_registry",
+    "proof_gated_receipts",
+    "checkpoint_set",
+    "artifact_v2",
+    "promotion_gate_guardrails",
+    "gated_apply",
+    "route_book",
+    "route_health",
+    "rollback_route_update",
+    "owned_chat_default",
+    "aio_local_loop",
+    "prod_ready_checker",
+    "artifact_store_adapter",
+    "anchor_adapter",
+    "worker_io_api",
+    "release_gate_helper"
+  ],
+  "external_resources_needed": [
+    "https_domain",
+    "real_gpu_workers",
+    "real_model_weights",
+    "object_storage_or_model_registry",
+    "external_anchor_or_chain",
+    "worker_attestation",
+    "monitoring",
+    "backup",
+    "rate_limit_abuse_control",
+    "security_audit"
+  ]
+}
