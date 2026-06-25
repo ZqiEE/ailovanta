@@ -58,3 +58,26 @@ proof/trust gate passes
 runtime doctor passes
 model warm succeeds
 ```
+
+## Rollback behavior
+
+`RollbackExecutor` now checks active routes during rollback.
+
+If an active route points to the bad model, rollback will disable that route:
+
+```text
+owned-chat/default -> bad:model
+rollback bad:model
+=> owned-chat/default disabled
+```
+
+If the live record contains a `previous_model`, rollback restores the same route to the previous model:
+
+```text
+owned-chat/default -> bad:model
+previous_model = stable:model
+rollback bad:model
+=> owned-chat/default -> stable:model
+```
+
+This prevents `/ailovanta/v1/owned-chat-default` from continuing to route traffic to a rolled-back model.
