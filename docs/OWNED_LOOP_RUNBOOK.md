@@ -26,6 +26,7 @@ preflight
 -> foundation artifact v2
 -> promotion gate with proof/trust guardrails
 -> gated runtime apply
+-> active route publication
 -> final report
 ```
 
@@ -40,6 +41,23 @@ preflight
   }
 }
 ```
+
+## Chat after success
+
+```text
+POST /ailovanta/v1/owned-chat-default
+```
+
+Payload:
+
+```json
+{
+  "prompt": "hello",
+  "user_id": "local"
+}
+```
+
+The endpoint reads `owned-chat/default` from RouteBook and does not require callers to pass `model_id` or `version`.
 
 ## Preflight only
 
@@ -59,6 +77,12 @@ python scripts/local_loop.py --core-path ../ailovanta-core
 python scripts/final_report.py runtime_data/local_loop/foundation_result.json
 ```
 
+## Route only
+
+```bash
+python scripts/route_book.py get --route-key owned-chat/default
+```
+
 ## Main generated files
 
 ```text
@@ -67,6 +91,7 @@ runtime_data/parcels/checkpoint_receipts.json
 runtime_data/local_loop/checkpoint_set.json
 runtime_data/local_loop/foundation_result.json
 runtime_data/local_loop/local_loop_report.json
+runtime_data/route_book.sqlite3
 ```
 
 ## Production replacements later
@@ -89,6 +114,7 @@ proof_coverage < 0.8
 avg_trust_score < 0.75
 runtime doctor reports blockers
 artifact hash is missing
+active route is missing or points to another model
 ```
 
 ## Current truth
