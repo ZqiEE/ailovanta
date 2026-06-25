@@ -82,4 +82,5 @@ class JobRunner:
             "evaluation_batch": 0.8,
             "verification": 0.4,
             "lora_micro": 1.0,
+            "model_shard": 1.0,
         }.get(job_type, 0.6)
