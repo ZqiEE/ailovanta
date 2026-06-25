@@ -39,7 +39,7 @@ def foundation_result_to_core_manifest(payload: dict[str, Any]) -> dict[str, Any
         "next_model_version": artifact["version"],
         "base_model": plan.get("model", {}).get("model_id", "ailovanta-owned"),
         "dataset_uri": "foundation://" + artifact["source_plan_id"],
-        "summary_path": artifact.get("checkpoint_uri", ""),
+        "summary_path": artifact.get("backend_ref") or artifact.get("checkpoint_uri", ""),
         "promotion_status": artifact.get("promotion_status", "candidate"),
         "artifact": artifact,
     }
@@ -62,13 +62,14 @@ def import_foundation_result(
     runtime_result = core_store.promote_to_runtime(core_result["result_id"], runtime)
     runtime_model = runtime_result["runtime_model"]
     artifact = manifest["artifact"]
+    backend_ref = artifact.get("backend_ref") or artifact.get("checkpoint_uri", "")
     binding = bindings.register_binding(
         runtime_model,
         artifact,
         backend_kind=artifact.get("backend_kind", "checkpoint-artifact"),
-        backend_ref=artifact.get("checkpoint_uri", ""),
+        backend_ref=backend_ref,
         status="active" if runtime_model.get("status") == "active" else "candidate",
-        metadata={"core_result_id": core_result["result_id"], "source": "foundation_import"},
+        metadata={"core_result_id": core_result["result_id"], "source": "foundation_import", "backend_ref_source": "artifact.backend_ref" if artifact.get("backend_ref") else "artifact.checkpoint_uri"},
     )
     chain_event = chain.append_model_event(
         {
@@ -77,7 +78,7 @@ def import_foundation_result(
             "version": runtime_model["version"],
             "artifact_hash": artifact["artifact_hash"],
             "runtime_manifest_hash": runtime_model["manifest_hash"],
-            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"]},
+            "metadata": {"core_result_id": core_result["result_id"], "artifact_id": artifact["artifact_id"], "binding_id": binding["binding_id"], "backend_ref": backend_ref},
         }
     )
     return {"core_result": core_result, "runtime_model": runtime_model, "artifact_binding": binding, "chain_event": chain_event}
