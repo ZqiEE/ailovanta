@@ -16,6 +16,7 @@ from api.rflow_api import router as rflow_router
 from api.rollback_api import router as rollback_router
 from api.route_book_api import router as route_book_router
 from api.route_health_api import router as route_health_router
+from api.swarm_model_api import router as distributed_model_router
 from api.wio_api import router as wio_router
 
 app.include_router(learning_router)
@@ -33,3 +34,4 @@ app.include_router(route_book_router)
 app.include_router(route_health_router)
 app.include_router(wio_router)
 app.include_router(node_admission_router)
+app.include_router(distributed_model_router)
