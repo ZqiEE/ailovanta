@@ -53,6 +53,8 @@ def normalize_receipt(payload: dict[str, Any]) -> dict[str, Any]:
         "eval_loss": float(source.get("eval_loss") or metrics.get("eval_loss") or 0.0),
         "proof_ok": bool(proof.get("ok")),
         "proof_reason": proof.get("reason"),
+        "proof_source": proof.get("source"),
+        "trust_score": proof.get("trust_score"),
         "created_at": float(source.get("created_at") or payload.get("created_at") or round(time(), 3)),
     }
     for key in ["local_checkpoint_uri", "backend_ref", "backend"]:
