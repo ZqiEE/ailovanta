@@ -10,6 +10,7 @@ from typing import Any
 from api.foundation_job_export import export_foundation_job
 from api.foundation_result_import import import_foundation_result_file
 from api.learning_foundation import create_job_from_latest_pack
+from api.model_monitor import ModelMonitorStore
 
 
 def metric_score_from_result(result: dict[str, Any]) -> float:
@@ -88,8 +89,30 @@ def run_guarded_learning_pipeline(
     gate_result = run_core_eval_gate(core_root, eval_payload, gate_dir)
     decision = (gate_result.get("decision") or {}).get("decision")
 
+    artifact = foundation_result.get("artifact") or {}
+    monitor = ModelMonitorStore()
+    shadow = None
+    if decision in {"promote", "shadow"}:
+        shadow = monitor.register_shadow(
+            candidate_model=eval_payload["candidate_model"],
+            baseline_model=baseline_model,
+            artifact_hash=artifact.get("artifact_hash"),
+            metadata={"job_id": job_id, "decision": decision, "result_path": str(result_path)},
+        )
+        monitor.record_metric(
+            eval_payload["candidate_model"],
+            {item["name"]: float(item["candidate_score"]) for item in eval_payload["metrics"]},
+            mode="shadow",
+            metadata={"shadow_id": shadow["shadow_id"], "job_id": job_id},
+        )
+
     imported = None
-    if decision == "promote" or (decision == "shadow" and allow_shadow_import):
+    live = None
+    if decision == "promote":
+        imported = import_foundation_result_file(result_path)
+        if shadow:
+            live = monitor.promote_live(shadow["shadow_id"])
+    elif decision == "shadow" and allow_shadow_import:
         imported = import_foundation_result_file(result_path)
 
     return {
@@ -99,6 +122,8 @@ def run_guarded_learning_pipeline(
         "result_path": str(result_path),
         "eval_payload": eval_payload,
         "gate": gate_result,
+        "shadow": shadow,
+        "live": live,
         "imported": imported,
         "runtime_updated": imported is not None,
     }
