@@ -33,6 +33,11 @@ def bootstrap(args: argparse.Namespace) -> dict[str, Any]:
         poll_seconds=args.poll_seconds,
         max_cpu_percent=args.max_cpu_percent,
         min_free_memory_gb=args.min_free_memory_gb,
+        max_gpu_percent=args.max_gpu_percent,
+        max_gpu_memory_percent=args.max_gpu_memory_percent,
+        max_gpu_temperature_c=args.max_gpu_temperature_c,
+        min_idle_seconds=args.min_idle_seconds,
+        pause_on_battery=not args.allow_on_battery,
         log_dir=Path(args.log_dir),
         identity_path=Path(args.identity_path),
         max_payload_bytes=args.max_payload_bytes,
@@ -51,6 +56,11 @@ def main() -> int:
     parser.add_argument("--poll-seconds", type=int, default=5)
     parser.add_argument("--max-cpu-percent", type=int, default=70)
     parser.add_argument("--min-free-memory-gb", type=float, default=1.5)
+    parser.add_argument("--max-gpu-percent", type=int, default=80)
+    parser.add_argument("--max-gpu-memory-percent", type=int, default=80)
+    parser.add_argument("--max-gpu-temperature-c", type=int, default=78)
+    parser.add_argument("--min-idle-seconds", type=int, default=0)
+    parser.add_argument("--allow-on-battery", action="store_true")
     parser.add_argument("--log-dir", default="runtime_data/logs")
     parser.add_argument("--identity-path", default="runtime_data/node_identity.json")
     parser.add_argument("--max-payload-bytes", type=int, default=16384)
