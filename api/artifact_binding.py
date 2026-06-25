@@ -13,11 +13,19 @@ BINDING_SCHEMA = "ailovanta.artifact_runtime_binding.v1"
 
 class ArtifactBindingStore:
     def __init__(self, path: str | Path = "runtime_data/artifact_bindings.sqlite3") -> None:
+        self.raw_path = str(path)
         self.path = Path(path)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._memory_conn: sqlite3.Connection | None = None
+        if self.raw_path == ":memory:":
+            self._memory_conn = sqlite3.connect(":memory:")
+            self._memory_conn.row_factory = sqlite3.Row
+        else:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
 
     def connect(self) -> sqlite3.Connection:
+        if self._memory_conn is not None:
+            return self._memory_conn
         return connect_sqlite(self.path)
 
     def _init_db(self) -> None:
