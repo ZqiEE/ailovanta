@@ -13,12 +13,18 @@ def main() -> int:
     parser.add_argument("--baseline-score", type=float, default=0.45)
     parser.add_argument("--max-steps", type=int, default=100)
     parser.add_argument("--allow-shadow-import", action="store_true")
+    parser.add_argument("--execute-checkpoints", action="store_true")
+    parser.add_argument("--checkpoint-output-root", default=None)
+    parser.add_argument("--training-command", default=None)
     args = parser.parse_args()
     payload = {
         "core_path": args.core_path,
         "baseline_score": args.baseline_score,
         "max_steps": args.max_steps,
         "allow_shadow_import": args.allow_shadow_import,
+        "execute_checkpoints": args.execute_checkpoints,
+        "checkpoint_output_root": args.checkpoint_output_root,
+        "training_command": args.training_command,
     }
     with httpx.Client(timeout=900) as client:
         response = client.post(args.api_url.rstrip("/") + "/autonomous/run", json=payload)
