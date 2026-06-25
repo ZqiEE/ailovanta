@@ -5,6 +5,7 @@ This follows the original Ailovanta design:
 ```text
 public node client
 -> gateway registration
+-> node admission check
 -> runtime pool registration
 -> task pull / result submit
 -> proof / validation
@@ -50,6 +51,29 @@ runtime pool candidate
 no accelerator -> cpu_pool
 < 24GB memory -> small_gpu_pool
 >= 24GB memory -> large_gpu_pool
+```
+
+## Node admission
+
+Before a node should be trusted as an active runtime, check admission:
+
+```text
+GET  /node-admission/rules
+POST /node-admission/check
+POST /node-admission/choose-pool
+```
+
+Admission checks:
+
+```text
+pool type
+online status
+GPU requirement
+minimum GPU memory
+trust score
+current load
+heartbeat freshness
+trusted/private pool restrictions
 ```
 
 ## Runtime routing
@@ -111,7 +135,6 @@ Do not send private/protected models to public nodes.
 ## Next implementation steps
 
 ```text
-node admission rules
 validator mesh
 reward/reputation updates
 storage replica tracking
