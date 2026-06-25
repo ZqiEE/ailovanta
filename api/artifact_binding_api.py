@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
+from api.runtime_ref import check_runtime_ref
 
 router = APIRouter(prefix="/artifact-bindings", tags=["artifact-bindings"])
 store = ArtifactBindingStore()
@@ -37,3 +38,16 @@ def set_status(binding_id: str, body: StatusRequest) -> dict:
     if not item:
         raise HTTPException(status_code=404, detail="binding not found")
     return {"binding": item}
+
+
+@router.post("/{binding_id}/check")
+def check_binding(binding_id: str) -> dict:
+    item = store.get(binding_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="binding not found")
+    check = check_runtime_ref(item)
+    if check["ready"] and item.get("status") == "unavailable":
+        item = store.set_status(binding_id, "candidate") or item
+    if not check["ready"] and item.get("status") in {"active", "candidate"}:
+        item = store.set_status(binding_id, "unavailable") or item
+    return {"binding": item, "check": check}
