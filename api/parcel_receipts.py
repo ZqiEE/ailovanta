@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from time import time
 from typing import Any
 from uuid import uuid4
 
+from api.node_proof import verify_proof
 from api.parcel_store import ParcelStore
 
 RECEIPT_SCHEMA = "ailovanta.checkpoint_receipt.v1"
@@ -22,6 +24,12 @@ def sha_from_text(value: str) -> str:
     return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def should_require_proof(require_proof: bool | None = None) -> bool:
+    if require_proof is not None:
+        return require_proof
+    return os.getenv("AILOVANTA_REQUIRE_NODE_PROOF", "").lower() in {"1", "true", "yes"}
+
+
 def normalize_receipt(payload: dict[str, Any]) -> dict[str, Any]:
     source = payload.get("result") if isinstance(payload.get("result"), dict) else payload
     task = source.get("task") if isinstance(source.get("task"), dict) else {}
@@ -32,6 +40,7 @@ def normalize_receipt(payload: dict[str, Any]) -> dict[str, Any]:
     checkpoint_hash = str(source.get("checkpoint_hash") or source.get("artifact_hash") or sha_from_text(json.dumps(source, ensure_ascii=False, sort_keys=True)))
     if not checkpoint_hash.startswith("sha256:"):
         checkpoint_hash = sha_from_text(checkpoint_hash)
+    proof = verify_proof(payload)
     receipt = {
         "schema_version": RECEIPT_SCHEMA,
         "receipt_id": str(source.get("receipt_id") or payload.get("id") or "ckpt_receipt_" + uuid4().hex[:12]),
@@ -42,6 +51,8 @@ def normalize_receipt(payload: dict[str, Any]) -> dict[str, Any]:
         "token_count": int(source.get("token_count") or metrics.get("token_count") or 0),
         "train_loss": float(source.get("train_loss") or metrics.get("train_loss") or 0.0),
         "eval_loss": float(source.get("eval_loss") or metrics.get("eval_loss") or 0.0),
+        "proof_ok": bool(proof.get("ok")),
+        "proof_reason": proof.get("reason"),
         "created_at": float(source.get("created_at") or payload.get("created_at") or round(time(), 3)),
     }
     for key in ["local_checkpoint_uri", "backend_ref", "backend"]:
@@ -51,11 +62,14 @@ def normalize_receipt(payload: dict[str, Any]) -> dict[str, Any]:
     return receipt
 
 
-def export_receipts(store: ParcelStore | None = None, output_path: str | Path = "runtime_data/parcels/checkpoint_receipts.json") -> dict[str, Any]:
+def export_receipts(store: ParcelStore | None = None, output_path: str | Path = "runtime_data/parcels/checkpoint_receipts.json", require_proof: bool | None = None) -> dict[str, Any]:
     parcel_store = store or ParcelStore()
-    receipts = [normalize_receipt(item) for item in parcel_store.list_outbox()]
+    all_receipts = [normalize_receipt(item) for item in parcel_store.list_outbox()]
+    proof_required = should_require_proof(require_proof)
+    receipts = [item for item in all_receipts if item.get("proof_ok")] if proof_required else all_receipts
+    rejected = [item for item in all_receipts if not item.get("proof_ok")]
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {"schema_version": "ailovanta.checkpoint_receipt_export.v1", "count": len(receipts), "receipts": receipts, "created_at": round(time(), 3)}
+    payload = {"schema_version": "ailovanta.checkpoint_receipt_export.v1", "count": len(receipts), "rejected_count": len(rejected), "require_proof": proof_required, "receipts": receipts, "created_at": round(time(), 3)}
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {"ok": True, "count": len(receipts), "output_path": str(path), "receipts": receipts}
+    return {"ok": True, "count": len(receipts), "rejected_count": len(rejected), "require_proof": proof_required, "output_path": str(path), "receipts": receipts, "rejected": rejected}
