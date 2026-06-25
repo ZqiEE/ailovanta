@@ -30,6 +30,35 @@ python scripts/route_book.py disable \
   --reason rollback
 ```
 
+## Route health
+
+Check whether the active route is actually usable:
+
+```bash
+python scripts/route_health.py --route-key owned-chat/default
+```
+
+Disable it automatically if it is bad:
+
+```bash
+python scripts/route_health.py --route-key owned-chat/default --disable-if-bad
+```
+
+API:
+
+```text
+GET  /route-health/owned-chat/default
+POST /route-health/check
+```
+
+Health checks include:
+
+```text
+route exists and is active
+artifact binding exists and is active/candidate
+runtime doctor reports ready
+```
+
 ## Chat through active route
 
 ```text
@@ -48,6 +77,8 @@ Payload:
 This endpoint does not require model_id/version. It loads them from the active route.
 
 If no active route exists, it returns `owned-route-unavailable`.
+
+If the route exists but fails health checks, it returns `owned-route-unhealthy`.
 
 ## Route publication
 
