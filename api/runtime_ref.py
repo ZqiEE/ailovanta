@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 SCHEMA = "ailovanta.runtime_ref.v1"
 
@@ -12,10 +12,30 @@ def to_local_path(value: str) -> Path | None:
         return None
     parsed = urlparse(value)
     if parsed.scheme == "file":
-        return Path(parsed.path)
+        return _file_uri_to_path(value, parsed)
     if parsed.scheme == "":
         return Path(value)
     return None
+
+
+def _file_uri_to_path(value: str, parsed) -> Path:
+    # POSIX URI: file:///tmp/checkpoint.bin -> /tmp/checkpoint.bin
+    if parsed.path and parsed.path not in {"/", ""}:
+        path = unquote(parsed.path)
+        # Windows URI produced by Path.as_uri(): file:///C:/tmp/a.bin
+        if len(path) >= 3 and path[0] == "/" and path[2] == ":":
+            path = path[1:]
+        return Path(path)
+
+    # Windows string often produced in tests/user config:
+    # file://C:\Users\... or file://C:/Users/...
+    raw = value.removeprefix("file://")
+    if raw:
+        return Path(unquote(raw))
+
+    if parsed.netloc:
+        return Path(unquote(parsed.netloc))
+    return Path("")
 
 
 def check_runtime_ref(item: dict[str, Any]) -> dict[str, Any]:
