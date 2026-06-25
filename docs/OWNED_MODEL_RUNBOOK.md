@@ -8,6 +8,12 @@ Use the owned-mode entrypoint:
 uvicorn api.main_owned:app --reload
 ```
 
+Use the checked owned-mode entrypoint when you want artifact binding policy enforced before worker calls:
+
+```bash
+uvicorn api.main_owned_checked:app --reload
+```
+
 This includes:
 
 ```text
@@ -15,6 +21,7 @@ base Ailovanta API
 data source registry
 core result registry
 owned model chat endpoint
+artifact-binding checked owned model chat endpoint
 ```
 
 ## End-to-end path
@@ -25,17 +32,29 @@ owned model chat endpoint
 3. Run ailovanta-core public bridge.
 4. Register core result manifest in public API.
 5. Register runtime model from that core result.
-6. Register trusted runtime node that has the model cached.
-7. Call /ailovanta/v1/owned-chat.
+6. Register artifact binding with a reachable backend_ref.
+7. Register trusted runtime node that has the model cached.
+8. Call /ailovanta/v1/owned-chat-checked.
 ```
 
-## Owned chat endpoint
+## Owned chat endpoints
 
 ```text
 POST /ailovanta/v1/owned-chat
+POST /ailovanta/v1/owned-chat-checked
 ```
 
-If no verified Ailovanta runtime manifest is available, the endpoint returns:
+The checked endpoint runs route policy before calling the worker:
+
+```text
+model_id + version
+-> artifact binding lookup
+-> backend_ref local check
+-> runtime route
+-> worker inference
+```
+
+If no verified Ailovanta runtime manifest or usable binding is available, the endpoint returns:
 
 ```text
 owned_model_ready: false
@@ -46,9 +65,8 @@ If a verified Ailovanta runtime manifest is routed, the endpoint returns:
 
 ```text
 owned_model_ready: true
-source: ailovanta-owned-runtime
 ```
 
 ## Boundary
 
-`owned-chat` does not silently call the bootstrap local model. It requires runtime routing to an Ailovanta model manifest.
+`owned-chat` does not silently call the bootstrap local model. The checked endpoint additionally requires a usable artifact binding before worker inference.
