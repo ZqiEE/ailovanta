@@ -3,6 +3,7 @@ from __future__ import annotations
 from api.apply_api import router as apply_router
 from api.artifact_binding_api import router as artifact_binding_router
 from api.autonomous_api import router as autonomous_router
+from api.gg_api import router as gg_router
 from api.learning_api import router as learning_router
 from api.learning_foundation_api import router as learning_foundation_router
 from api.learning_gate_api import router as learning_gate_router
@@ -22,3 +23,4 @@ app.include_router(artifact_binding_router)
 app.include_router(apply_router)
 app.include_router(rflow_router)
 app.include_router(rflow2_router)
+app.include_router(gg_router)
