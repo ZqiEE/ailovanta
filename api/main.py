@@ -489,7 +489,8 @@ def list_conversation_messages(conversation_id: str, limit: int = 100) -> dict:
 
 @app.delete("/ailovanta/v1/conversations/{conversation_id}")
 def delete_conversation(conversation_id: str) -> dict:
-    return {"deleted": conversations.delete_conversation(conversation_id)}
+    deleted = conversations.delete_conversation(conversation_id)
+    return {"ok": bool(deleted), "deleted": deleted}
 
 
 @app.post("/usage/events")
