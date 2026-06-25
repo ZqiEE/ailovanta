@@ -13,6 +13,7 @@ class TestnetChainAdapter(ChainAdapter):
     the rest of the system can treat like chain receipts during development.
     """
 
+    __test__ = False
     name = "testnet-dry-run"
 
     def __init__(self, network_name: str = "local-testnet") -> None:
