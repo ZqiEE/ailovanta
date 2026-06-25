@@ -11,6 +11,8 @@ from uuid import uuid4
 
 from api.autotruth_store import AutoTruthEventStore
 from api.learning_gate import run_guarded_learning_pipeline
+from api.model_warm import ModelWarm, WarmSpec
+from api.owned_doctor import OwnedDoctor
 
 
 class AutonomousLoop:
@@ -34,6 +36,10 @@ class AutonomousLoop:
         backend_device: str | None = None,
         backend_max_steps: int | None = None,
         backend_lr: float | None = None,
+        auto_prepare_runtime: bool = True,
+        runtime_id: str = "rt-owned-1",
+        node_id: str = "node-owned-1",
+        runtime_gpu_memory_gb: float = 24.0,
         max_steps: int = 100,
         model_id: str = "ailovanta-owned",
         target_version: str = "candidate",
@@ -76,6 +82,13 @@ class AutonomousLoop:
             target_version=target_version,
             max_steps=max_steps,
         )
+        model_key = f"{model_id}:{target_version}"
+        before_doctor = OwnedDoctor().check(model_key)
+        prepare = None
+        after_doctor = before_doctor
+        if auto_prepare_runtime:
+            prepare = ModelWarm().run(WarmSpec(model_key=model_key, runtime_id=runtime_id, node_id=node_id, gpu_memory_gb=runtime_gpu_memory_gb))
+            after_doctor = OwnedDoctor().check(model_key)
 
         payload = {
             "run_id": run_id,
@@ -87,6 +100,11 @@ class AutonomousLoop:
             "public_import": imported,
             "execute_checkpoints": execute_checkpoints,
             "guarded": guarded,
+            "auto_prepare_runtime": auto_prepare_runtime,
+            "model_key": model_key,
+            "doctor_before_prepare": before_doctor,
+            "runtime_prepare": prepare,
+            "doctor_after_prepare": after_doctor,
             "created_at": round(time(), 3),
         }
         self._write_run(payload)
