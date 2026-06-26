@@ -11,6 +11,8 @@ public node client
 -> task pull / result submit
 -> proof / validation
 -> model shard delta files
+-> delta index / hash check
+-> credit ledger
 -> checkpoint build
 -> checkpoint runtime
 -> route to verified warm runtimes
@@ -80,7 +82,15 @@ This performs:
 create /swarm-model/plans
 run node_client.once_real repeatedly
 write runtime_data/model_deltas/<plan_id>/*.pt
+scan verified delta index into runtime_data/didx.json
+award verified node credits into runtime_data/credits.json
 build runtime_data/merged_models/*.pt
+```
+
+Inspect verified deltas and node credits:
+
+```bash
+python scripts/didx.py --scan --award
 ```
 
 Run the latest merged checkpoint:
@@ -127,7 +137,13 @@ The node writes shard outputs to:
 runtime_data/model_deltas/<plan_id>/*.pt
 ```
 
-Build a merged checkpoint from shard outputs:
+Index and verify submitted deltas:
+
+```bash
+python scripts/didx.py --scan --plan-id <plan_id> --award
+```
+
+Build a merged checkpoint from verified shard outputs:
 
 ```bash
 python scripts/mck.py \
