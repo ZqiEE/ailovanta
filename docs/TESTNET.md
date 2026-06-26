@@ -10,7 +10,9 @@ public node client
 -> runtime pool registration
 -> task pull / result submit
 -> proof / validation
--> artifact chunk manifest
+-> model shard delta files
+-> checkpoint build
+-> checkpoint runtime
 -> route to verified warm runtimes
 ```
 
@@ -46,6 +48,76 @@ job worker node
 runtime pool candidate
 ```
 
+## Real model shard loop
+
+Install torch first:
+
+```bash
+pip install torch
+```
+
+For NVIDIA CUDA machines, install the matching torch CUDA wheel for that machine.
+
+Create a local data file:
+
+```bash
+mkdir -p runtime_data
+printf "Ailovanta trains model shards on distributed user nodes.\n" > runtime_data/train.txt
+```
+
+Create shard jobs:
+
+```bash
+curl -X POST http://127.0.0.1:8000/swarm-model/plans \
+  -H "Content-Type: application/json" \
+  -d '{"dataset_uri":"file://runtime_data/train.txt","total_tokens":120,"shard_tokens":32,"min_gpu_memory_gb":0,"enqueue":true}'
+```
+
+Start the real node client:
+
+```bash
+python -m node_client.client_real \
+  --api-url http://127.0.0.1:8000 \
+  --max-runtime-seconds 120
+```
+
+The node writes shard outputs to:
+
+```text
+runtime_data/model_deltas/<plan_id>/*.pt
+```
+
+Build a merged checkpoint from shard outputs:
+
+```bash
+python scripts/mck.py \
+  --plan-id <plan_id> \
+  --model-id ailovanta-foundation \
+  --version v0.1
+```
+
+Or build through HTTP:
+
+```bash
+curl -X POST http://127.0.0.1:8000/ck/build \
+  -H "Content-Type: application/json" \
+  -d '{"plan_id":"<plan_id>","model_id":"ailovanta-foundation","version":"v0.1"}'
+```
+
+Run the latest merged checkpoint:
+
+```bash
+python scripts/rck.py --text "Hello Ailovanta"
+```
+
+Or run through HTTP:
+
+```bash
+curl -X POST http://127.0.0.1:8000/ck/run \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello Ailovanta","max_new":80}'
+```
+
 ## Resource guard
 
 Ailovanta Node should only use spare resources. The local guard checks:
@@ -64,7 +136,7 @@ Example safe contribution modes:
 
 ```bash
 # Light: only after 5 minutes idle, conservative GPU use.
-python -m node_client.client \
+python -m node_client.client_real \
   --max-cpu-percent 35 \
   --max-gpu-percent 35 \
   --max-gpu-memory-percent 35 \
@@ -72,7 +144,7 @@ python -m node_client.client \
   --min-idle-seconds 300
 
 # Balanced: default-like contribution, still pauses on heat/battery/high load.
-python -m node_client.client \
+python -m node_client.client_real \
   --max-cpu-percent 60 \
   --max-gpu-percent 60 \
   --max-gpu-memory-percent 60 \
@@ -80,7 +152,7 @@ python -m node_client.client \
   --min-idle-seconds 60
 
 # High contribution: user explicitly allows heavier work.
-python -m node_client.client \
+python -m node_client.client_real \
   --max-cpu-percent 80 \
   --max-gpu-percent 80 \
   --max-gpu-memory-percent 80 \
@@ -180,7 +252,7 @@ Do not run heavy GPU work while the user's machine is hot, busy, or on battery.
 ## Next implementation steps
 
 ```text
-tiny training task shards
+real transformer shard worker
 checkpoint pause/resume
 validator mesh
 reward/reputation updates
