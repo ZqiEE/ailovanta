@@ -29,7 +29,17 @@ def newest(root: str | Path = "runtime_data/manifests") -> Path | None:
     return files[0] if files else None
 
 
-def gate(manifest: str | Path | None = None, eval_file: str | Path = "runtime_data/code_eval.json", min_score: float = 1.0) -> dict[str, Any]:
+def registry() -> dict[str, Any]:
+    return load(REGISTRY, {"schema_version": "ailovanta.model_registry.v1", "models": []})
+
+
+def best_score(model_id: str, reg: dict[str, Any] | None = None) -> float:
+    data = reg or registry()
+    scores = [float(item.get("eval_score") or 0) for item in data.get("models", []) if item.get("model_id") == model_id and item.get("status") == "promoted"]
+    return max(scores) if scores else -1.0
+
+
+def gate(manifest: str | Path | None = None, eval_file: str | Path = "runtime_data/code_eval.json", min_score: float = 1.0, require_improvement: bool = True) -> dict[str, Any]:
     mp = Path(manifest) if manifest else newest()
     if not mp or not mp.exists():
         return {"ok": False, "reason": "manifest_not_found"}
@@ -39,15 +49,20 @@ def gate(manifest: str | Path | None = None, eval_file: str | Path = "runtime_da
     failed = int(ev.get("failed") or 0)
     if score < min_score or failed > 0:
         return {"ok": False, "reason": "eval_not_passed", "score": score, "failed": failed, "required_score": min_score}
-    reg = load(REGISTRY, {"schema_version": "ailovanta.model_registry.v1", "models": []})
+    model_id = str(m.get("artifact_name", "ailovanta-model")).split("-")[0]
+    reg = registry()
+    previous = best_score(model_id, reg)
+    if require_improvement and previous >= 0 and score <= previous:
+        return {"ok": False, "reason": "not_improved", "score": score, "previous_best_score": previous, "model_id": model_id}
     rec = {
-        "model_id": str(m.get("artifact_name", "ailovanta-model")).split("-")[0],
+        "model_id": model_id,
         "artifact_name": m.get("artifact_name"),
         "artifact_hash": m.get("artifact_hash"),
         "manifest_ref": "file://" + str(mp.resolve()),
         "chunk_count": m.get("chunk_count"),
         "artifact_bytes": m.get("artifact_bytes"),
         "eval_score": score,
+        "previous_best_score": previous,
         "eval_failed": failed,
         "status": "promoted",
     }
