@@ -12,6 +12,8 @@ from api.main_owned_default import ailovanta_owned_chat_default as _owned_chat_d
 from api.main_packet import app
 from api.model_monitor_api import router as model_monitor_router
 from api.node_admission_api import router as node_admission_router
+from api.pool_api import router as storage_pool_router
+from api.reg_api import router as model_registry_router
 from api.rflow2_api import router as rflow2_router
 from api.rflow_api import router as rflow_router
 from api.rollback_api import router as rollback_router
@@ -37,3 +39,5 @@ app.include_router(wio_router)
 app.include_router(node_admission_router)
 app.include_router(distributed_model_router)
 app.include_router(checkpoint_runtime_router)
+app.include_router(model_registry_router)
+app.include_router(storage_pool_router)
