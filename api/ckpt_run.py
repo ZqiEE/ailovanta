@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +50,37 @@ def run_ckpt(prompt: str, ref: str, max_new: int = 80) -> dict[str, Any]:
 
 def newest_ref(root: str | Path = "runtime_data/merged_models") -> str | None:
     folder = Path(root)
-    if not folder.exists():
+    if folder.exists():
+        files = sorted(folder.glob("*.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if files:
+            return "file://" + str(files[0].resolve())
+    return restored_promoted_ref()
+
+
+def restored_promoted_ref() -> str | None:
+    reg_path = Path("runtime_data/model_registry.json")
+    if not reg_path.exists():
         return None
-    files = sorted(folder.glob("*.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
-    return "file://" + str(files[0].resolve()) if files else None
+    try:
+        reg = json.loads(reg_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    models = [item for item in reg.get("models", []) if item.get("status") == "promoted" and item.get("manifest_ref")]
+    if not models:
+        return None
+    models.sort(key=lambda item: float(item.get("eval_score") or 0), reverse=True)
+    manifest_ref = str(models[0]["manifest_ref"])
+    manifest_path = to_path(manifest_ref)
+    if manifest_path is None or not manifest_path.exists():
+        return None
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    output = Path("runtime_data/runtime_cache") / str(manifest.get("artifact_name") or "promoted.pt")
+    if output.exists():
+        return "file://" + str(output.resolve())
+    try:
+        from api.pool_store import get
+
+        get(manifest, output)
+    except Exception:
+        return None
+    return "file://" + str(output.resolve()) if output.exists() else None
