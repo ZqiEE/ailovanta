@@ -48,7 +48,7 @@ job worker node
 runtime pool candidate
 ```
 
-## Real model shard loop
+## One-command local loop
 
 Install torch first:
 
@@ -56,14 +56,48 @@ Install torch first:
 pip install torch
 ```
 
-For NVIDIA CUDA machines, install the matching torch CUDA wheel for that machine.
-
 Create a local data file:
 
 ```bash
 mkdir -p runtime_data
 printf "Ailovanta trains model shards on distributed user nodes.\n" > runtime_data/train.txt
 ```
+
+Run the full local loop:
+
+```bash
+python scripts/full_local_loop.py \
+  --api-url http://127.0.0.1:8000 \
+  --data-file runtime_data/train.txt \
+  --total-tokens 120 \
+  --shard-tokens 32 \
+  --node-runs 4
+```
+
+This performs:
+
+```text
+create /swarm-model/plans
+run node_client.once_real repeatedly
+write runtime_data/model_deltas/<plan_id>/*.pt
+build runtime_data/merged_models/*.pt
+```
+
+Run the latest merged checkpoint:
+
+```bash
+python scripts/rck.py --text "Hello Ailovanta"
+```
+
+Or run through HTTP:
+
+```bash
+curl -X POST http://127.0.0.1:8000/ck/run \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello Ailovanta","max_new":80}'
+```
+
+## Manual real model shard loop
 
 Create shard jobs:
 
@@ -73,7 +107,13 @@ curl -X POST http://127.0.0.1:8000/swarm-model/plans \
   -d '{"dataset_uri":"file://runtime_data/train.txt","total_tokens":120,"shard_tokens":32,"min_gpu_memory_gb":0,"enqueue":true}'
 ```
 
-Start the real node client:
+Run one shard and exit:
+
+```bash
+python -m node_client.once_real --api-url http://127.0.0.1:8000 --allow-on-battery
+```
+
+Or start the long-running real node client:
 
 ```bash
 python -m node_client.client_real \
@@ -102,20 +142,6 @@ Or build through HTTP:
 curl -X POST http://127.0.0.1:8000/ck/build \
   -H "Content-Type: application/json" \
   -d '{"plan_id":"<plan_id>","model_id":"ailovanta-foundation","version":"v0.1"}'
-```
-
-Run the latest merged checkpoint:
-
-```bash
-python scripts/rck.py --text "Hello Ailovanta"
-```
-
-Or run through HTTP:
-
-```bash
-curl -X POST http://127.0.0.1:8000/ck/run \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hello Ailovanta","max_new":80}'
 ```
 
 ## Resource guard
