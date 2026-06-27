@@ -6,6 +6,7 @@ from typing import Any
 from api.anchor_adapter import get_anchor_adapter
 from api.artifact_store import get_artifact_store
 from api.prod_config import load_config, redacted_env
+from api.readiness_audit import ReadinessAudit
 from api.route_health import RouteHealth
 
 
@@ -40,6 +41,11 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
         anchor_ok = False
         blockers.append("anchor_adapter_error:" + exc.__class__.__name__)
 
+    readiness = ReadinessAudit().production_check()
+    if not readiness.get("ok"):
+        blockers.extend("readiness:" + str(item) for item in readiness.get("blockers", []))
+    warnings.extend("readiness:" + str(item) for item in readiness.get("warnings", []))
+
     result_exists = None
     if result_path is not None:
         result_exists = Path(result_path).exists()
@@ -54,6 +60,7 @@ def check_production_ready(result_path: str | Path | None = None, route_key: str
         "config": cfg.to_dict(),
         "env": redacted_env(),
         "route_health": route,
+        "readiness": readiness,
         "artifact_store_ok": artifact_store_ok,
         "anchor_adapter_ok": anchor_ok,
         "result_exists": result_exists,
