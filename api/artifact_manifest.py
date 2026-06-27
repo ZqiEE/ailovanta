@@ -22,6 +22,12 @@ def sha256_file(path: str | Path) -> str:
     return "sha256:" + h.hexdigest()
 
 
+def manifest_digest(payload: dict[str, Any]) -> str:
+    body = {key: value for key, value in payload.items() if key != "manifest_hash"}
+    raw = json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
 def build_chunk_manifest(path: str | Path, artifact_uri: str, chunk_size: int = 8 * 1024 * 1024, replicas: list[str] | None = None, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     source = Path(path)
     if not source.exists():
@@ -46,7 +52,7 @@ def build_chunk_manifest(path: str | Path, artifact_uri: str, chunk_size: int = 
             })
             offset += len(data)
             index += 1
-    return {
+    manifest = {
         "schema_version": SCHEMA,
         "artifact_uri": artifact_uri,
         "artifact_hash": sha256_file(source),
@@ -57,6 +63,8 @@ def build_chunk_manifest(path: str | Path, artifact_uri: str, chunk_size: int = 
         "metadata": metadata or {},
         "created_at": round(time(), 3),
     }
+    manifest["manifest_hash"] = manifest_digest(manifest)
+    return manifest
 
 
 def write_chunk_manifest(path: str | Path, artifact_uri: str, output_path: str | Path, chunk_size: int = 8 * 1024 * 1024, replicas: list[str] | None = None, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -74,6 +82,8 @@ def verify_chunk_manifest(manifest: dict[str, Any], path: str | Path) -> dict[st
     expected_artifact_hash = manifest.get("artifact_hash")
     actual_artifact_hash = sha256_file(source)
     blockers: list[str] = []
+    if manifest.get("manifest_hash") and manifest.get("manifest_hash") != manifest_digest(manifest):
+        blockers.append("manifest_hash_mismatch")
     if expected_artifact_hash != actual_artifact_hash:
         blockers.append("artifact_hash_mismatch")
     chunk_size = int(manifest.get("chunk_size") or 0)
@@ -90,4 +100,4 @@ def verify_chunk_manifest(manifest: dict[str, Any], path: str | Path) -> dict[st
                 checked_chunks.append({"index": index, "ok": ok, "expected": chunk.get("chunk_hash"), "actual": actual})
                 if not ok:
                     blockers.append(f"chunk_hash_mismatch:{index}")
-    return {"ok": not blockers, "blockers": sorted(set(blockers)), "artifact_hash": actual_artifact_hash, "chunks": checked_chunks}
+    return {"ok": not blockers, "blockers": sorted(set(blockers)), "artifact_hash": actual_artifact_hash, "manifest_hash": manifest_digest(manifest), "chunks": checked_chunks}
