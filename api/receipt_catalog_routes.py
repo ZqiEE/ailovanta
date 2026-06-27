@@ -25,6 +25,10 @@ def catalog_from_receipt(body: ReceiptCatalogIn) -> dict:
     checked = verify_result(body.receipt)
     if body.require_valid and not checked.get("ok"):
         raise HTTPException(status_code=400, detail=checked)
+    result = checked.get("result") if isinstance(checked.get("result"), dict) else body.receipt
+    artifact_manifest = body.metrics.get("artifact_manifest") if isinstance(body.metrics.get("artifact_manifest"), dict) else None
+    if artifact_manifest and result.get("artifact_manifest_hash"):
+        artifact_manifest = {**artifact_manifest, "manifest_hash": result.get("artifact_manifest_hash")}
     item = catalog.add({
         "name": body.name,
         "version": body.version,
@@ -32,6 +36,7 @@ def catalog_from_receipt(body: ReceiptCatalogIn) -> dict:
         "location": body.receipt["checkpoint_uri"],
         "artifact_uri": body.receipt["checkpoint_uri"],
         "artifact_hash": body.receipt["checkpoint_hash"],
+        "artifact_manifest": artifact_manifest,
         "kind": body.kind,
         "digest": body.receipt["checkpoint_hash"],
         "metrics": body.metrics,
