@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from api.adapter_merge_routes import router as adapter_router
+from api.artifact_routes import router as artifact_router
 from api.benchmark_routes import router as benchmark_router
 from api.catalog_routes import router as catalog_router
 from api.catalog_extra_routes import router as extra_router
 from api.code_chat_api import router as code_chat_router
 from api.code_result_api import router as code_result_router
+from api.compat_routes import router as compat_router
 from api.runtime_extra_routes import router as rt_router
 from api.runtime_forward_routes import router as fw_router
+from api.strong_benchmark_routes import router as strong_benchmark_router
 from api.main import app
 
 app.include_router(code_chat_router)
@@ -16,3 +20,7 @@ app.include_router(extra_router)
 app.include_router(rt_router)
 app.include_router(benchmark_router)
 app.include_router(fw_router)
+app.include_router(compat_router)
+app.include_router(strong_benchmark_router)
+app.include_router(adapter_router)
+app.include_router(artifact_router)
