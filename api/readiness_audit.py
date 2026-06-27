@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from api.artifact_integrity import verify_catalog_item
 from api.catalog import Catalog
 from api.prod_config import load_config
 from api.receipt_gate import ready_for_catalog_publish
@@ -13,7 +14,7 @@ class ReadinessAudit:
     def __init__(self, catalog: Catalog | None = None) -> None:
         self.catalog = catalog or Catalog()
 
-    def check_item(self, item: dict[str, Any]) -> dict[str, Any]:
+    def check_item(self, item: dict[str, Any], verify_bytes: bool = False) -> dict[str, Any]:
         gate = ready_for_catalog_publish(item)
         blockers: list[str] = []
         warnings: list[str] = []
@@ -29,13 +30,22 @@ class ReadinessAudit:
             blockers.append("artifact_hash_not_sha256")
         if not gate.get("ok"):
             blockers.append("publish_gate:" + str(gate.get("reason")))
-        return {"item_id": item.get("id"), "name": item.get("name"), "version": item.get("version"), "status": item.get("status"), "ok": not blockers, "blockers": blockers, "warnings": warnings, "gate": gate, "artifact_uri": uri, "artifact_hash": digest}
+        integrity = None
+        if verify_bytes and uri and digest.startswith("sha256:"):
+            try:
+                integrity = verify_catalog_item(item)
+                if not integrity.get("ok"):
+                    blockers.append("artifact_integrity:" + str(integrity.get("reason")))
+            except Exception as exc:
+                integrity = {"ok": False, "reason": exc.__class__.__name__}
+                blockers.append("artifact_integrity_error:" + exc.__class__.__name__)
+        return {"item_id": item.get("id"), "name": item.get("name"), "version": item.get("version"), "status": item.get("status"), "ok": not blockers, "blockers": blockers, "warnings": warnings, "gate": gate, "integrity": integrity, "artifact_uri": uri, "artifact_hash": digest}
 
-    def check_catalog(self, status: str | None = "published") -> dict[str, Any]:
+    def check_catalog(self, status: str | None = "published", verify_bytes: bool = False) -> dict[str, Any]:
         items = self.catalog.list(status=status)
-        checked = [self.check_item(item) for item in items]
+        checked = [self.check_item(item, verify_bytes=verify_bytes) for item in items]
         blockers = [item for item in checked if not item["ok"]]
-        return {"ok": not blockers, "status": status, "count": len(checked), "blockers": blockers, "items": checked}
+        return {"ok": not blockers, "status": status, "verify_bytes": verify_bytes, "count": len(checked), "blockers": blockers, "items": checked}
 
     def check_manifests(self, manifest_dir: str | Path = "runtime_data/manifests") -> dict[str, Any]:
         root = Path(manifest_dir)
@@ -64,7 +74,7 @@ class ReadinessAudit:
                 blockers.append(item)
         return {"ok": not blockers, "count": len(checked), "blockers": blockers, "items": checked}
 
-    def production_check(self) -> dict[str, Any]:
+    def production_check(self, verify_bytes: bool = False) -> dict[str, Any]:
         cfg = load_config()
         blockers: list[str] = []
         warnings: list[str] = []
@@ -74,10 +84,10 @@ class ReadinessAudit:
             blockers.append("production_anchor_is_file")
         if cfg.env == "local":
             warnings.append("local_environment")
-        catalog = self.check_catalog(status="published")
+        catalog = self.check_catalog(status="published", verify_bytes=verify_bytes)
         manifests = self.check_manifests()
         if not catalog.get("ok"):
             blockers.append("catalog_readiness_failed")
         if not manifests.get("ok"):
             blockers.append("manifest_readiness_failed")
-        return {"ok": not blockers, "blockers": blockers, "warnings": warnings, "catalog": catalog, "manifests": manifests}
+        return {"ok": not blockers, "blockers": blockers, "warnings": warnings, "verify_bytes": verify_bytes, "catalog": catalog, "manifests": manifests}
