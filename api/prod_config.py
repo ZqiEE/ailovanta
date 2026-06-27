@@ -24,6 +24,11 @@ class ProductionConfig:
     require_node_proof: bool
     min_proof_coverage: float
     min_avg_trust_score: float
+    database_url: str
+    redis_url: str | None
+    use_postgres: bool
+    use_redis: bool
+    metrics_enabled: bool
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -47,6 +52,8 @@ def float_env(name: str, default: float) -> float:
 
 
 def load_config() -> ProductionConfig:
+    database_url = os.getenv("DATABASE_URL", "sqlite:///runtime_data/scheduler.sqlite3")
+    redis_url = os.getenv("REDIS_URL")
     return ProductionConfig(
         env=os.getenv("AILOVANTA_ENV", "local"),
         public_base_url=os.getenv("AILOVANTA_PUBLIC_BASE_URL"),
@@ -62,13 +69,18 @@ def load_config() -> ProductionConfig:
         require_node_proof=bool_env("AILOVANTA_REQUIRE_NODE_PROOF", True),
         min_proof_coverage=float_env("AILOVANTA_MIN_PROOF_COVERAGE", 0.8),
         min_avg_trust_score=float_env("AILOVANTA_MIN_AVG_TRUST_SCORE", 0.75),
+        database_url=database_url,
+        redis_url=redis_url,
+        use_postgres=database_url.startswith(("postgresql://", "postgres://")),
+        use_redis=bool(redis_url),
+        metrics_enabled=bool_env("AILOVANTA_METRICS", True),
     )
 
 
 def redacted_env() -> dict[str, str]:
     out: dict[str, str] = {}
     for key, value in sorted(os.environ.items()):
-        if not key.startswith("AILOVANTA_"):
+        if not (key.startswith("AILOVANTA_") or key in {"DATABASE_URL", "REDIS_URL"} or key.startswith("AWS_")):
             continue
         lower = key.lower()
         if any(part in lower for part in SECRET_KEYS):
@@ -76,3 +88,15 @@ def redacted_env() -> dict[str, str]:
         else:
             out[key] = value
     return out
+
+
+def config_status() -> dict[str, Any]:
+    cfg = load_config()
+    return {
+        "env": cfg.env,
+        "database_backend": "postgres" if cfg.use_postgres else "sqlite",
+        "redis_enabled": cfg.use_redis,
+        "metrics_enabled": cfg.metrics_enabled,
+        "artifact_store": cfg.artifact_store,
+        "model_backend": cfg.model_backend,
+    }
