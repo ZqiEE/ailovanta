@@ -12,6 +12,7 @@ from api.catalog_extra_routes import router as extra_router
 from api.code_chat_api import router as code_chat_router
 from api.code_result_api import router as code_result_router
 from api.compat_routes import router as compat_router
+from api.decentralized_artifact_routes import router as dz_artifact_router
 from api.humaneval_routes import router as humaneval_router
 from api.admin_routes import router as admin_router
 from api.monitoring_routes import router as monitoring_router
@@ -21,6 +22,7 @@ from api.ops_routes import router as ops_router
 from api.prometheus_routes import router as prometheus_router
 from api.qlora_routes import router as qlora_router
 from api.queue_routes import router as queue_router
+from api.receipt_catalog_routes import router as receipt_catalog_router
 from api.reputation_routes import router as reputation_router
 from api.runtime_extra_routes import router as rt_router
 from api.runtime_forward_routes import router as fw_router
@@ -35,6 +37,8 @@ app.include_router(code_result_router)
 app.include_router(csp_router)
 app.include_router(catalog_router)
 app.include_router(catalog_notary_router)
+app.include_router(receipt_catalog_router)
+app.include_router(dz_artifact_router)
 app.include_router(extra_router)
 app.include_router(rt_router)
 app.include_router(benchmark_router)
