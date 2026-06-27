@@ -30,6 +30,7 @@ from api.runtime_extra_routes import router as rt_router
 from api.runtime_forward_routes import router as fw_router
 from api.scheduler_routes import router as scheduler_router
 from api.strong_benchmark_routes import router as strong_benchmark_router
+from api.wio_api import router as wr
 from api.main import app
 
 install_admin_guard(app)
@@ -42,6 +43,7 @@ app.include_router(catalog_notary_router)
 app.include_router(receipt_catalog_router)
 app.include_router(dz_artifact_router)
 app.include_router(mock_notary_router)
+app.include_router(wr)
 app.include_router(extra_router)
 app.include_router(rt_router)
 app.include_router(benchmark_router)
