@@ -23,6 +23,7 @@ from api.ops_routes import router as ops_router
 from api.prometheus_routes import router as prometheus_router
 from api.qlora_routes import router as qlora_router
 from api.queue_routes import router as queue_router
+from api.readiness_routes import router as readiness_router
 from api.receipt_catalog_routes import router as receipt_catalog_router
 from api.reputation_routes import router as reputation_router
 from api.runtime_extra_routes import router as rt_router
@@ -58,6 +59,7 @@ app.include_router(monitoring_router)
 app.include_router(queue_router)
 app.include_router(reputation_router)
 app.include_router(artifact_version_router)
+app.include_router(readiness_router)
 app.include_router(admin_router)
 app.include_router(prometheus_router)
 app.include_router(scheduler_router)
