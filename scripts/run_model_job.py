@@ -7,6 +7,9 @@ from pathlib import Path
 from api.model_job import run_model_job
 
 
+NEXT_STEP = "For trusted catalog publish, use scripts/run_model_job_publish_flow.py"
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--payload", required=True)
@@ -16,6 +19,7 @@ def main() -> int:
     payload = json.loads(Path(args.payload).read_text(encoding="utf-8"))
     profile = {"cpu_threads": 1, "memory_gb": 4.0, "has_gpu": args.gpu, "gpu_name": None}
     result = run_model_job(payload, profile, args.source_id)
+    result["next_step"] = NEXT_STEP
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
