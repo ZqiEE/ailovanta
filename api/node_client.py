@@ -12,12 +12,20 @@ from pathlib import Path
 from typing import Any
 
 
+def auth_headers() -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    token = os.environ.get("AILOVANTA_NODE_TOKEN")
+    if token:
+        headers["X-Ailovanta-Node-Token"] = token
+    return headers
+
+
 def post(server: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
         server.rstrip("/") + path,
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers=auth_headers(),
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=30) as res:
@@ -25,7 +33,8 @@ def post(server: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
 
 
 def get(server: str, path: str) -> dict[str, Any]:
-    with urllib.request.urlopen(server.rstrip("/") + path, timeout=30) as res:
+    req = urllib.request.Request(server.rstrip("/") + path, headers=auth_headers(), method="GET")
+    with urllib.request.urlopen(req, timeout=30) as res:
         return json.loads(res.read().decode("utf-8"))
 
 
