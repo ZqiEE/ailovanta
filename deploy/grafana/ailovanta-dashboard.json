@@ -1,0 +1,44 @@
+{
+  "title": "Ailovanta Ops",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Queued Jobs",
+      "targets": [{"expr": "ailovanta_jobs_total{status=\"queued\"}"}],
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Assigned Jobs",
+      "targets": [{"expr": "ailovanta_jobs_total{status=\"assigned\"}"}],
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Nodes",
+      "targets": [{"expr": "ailovanta_nodes_total"}],
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Runtime Nodes",
+      "targets": [{"expr": "ailovanta_runtime_nodes_total"}],
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "timeseries",
+      "title": "Jobs",
+      "targets": [{"expr": "ailovanta_jobs_total"}],
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Events",
+      "targets": [{"expr": "ailovanta_events_total"}],
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8}
+    }
+  ]
+}
