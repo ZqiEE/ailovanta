@@ -15,6 +15,7 @@ from api.compat_routes import router as compat_router
 from api.decentralized_artifact_routes import router as dz_artifact_router
 from api.humaneval_routes import router as humaneval_router
 from api.admin_routes import router as admin_router
+from api.mock_notary_routes import router as mock_notary_router
 from api.monitoring_routes import router as monitoring_router
 from api.node_key_routes import router as node_key_router
 from api.object_store_routes import router as object_store_router
@@ -39,6 +40,7 @@ app.include_router(catalog_router)
 app.include_router(catalog_notary_router)
 app.include_router(receipt_catalog_router)
 app.include_router(dz_artifact_router)
+app.include_router(mock_notary_router)
 app.include_router(extra_router)
 app.include_router(rt_router)
 app.include_router(benchmark_router)
