@@ -9,6 +9,9 @@ from api.code_chat_api import router as code_chat_router
 from api.code_result_api import router as code_result_router
 from api.compat_routes import router as compat_router
 from api.humaneval_routes import router as humaneval_router
+from api.node_key_routes import router as node_key_router
+from api.object_store_routes import router as object_store_router
+from api.qlora_routes import router as qlora_router
 from api.runtime_extra_routes import router as rt_router
 from api.runtime_forward_routes import router as fw_router
 from api.strong_benchmark_routes import router as strong_benchmark_router
@@ -26,3 +29,6 @@ app.include_router(strong_benchmark_router)
 app.include_router(adapter_router)
 app.include_router(artifact_router)
 app.include_router(humaneval_router)
+app.include_router(node_key_router)
+app.include_router(object_store_router)
+app.include_router(qlora_router)
