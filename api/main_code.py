@@ -8,6 +8,7 @@ from api.catalog_extra_routes import router as extra_router
 from api.code_chat_api import router as code_chat_router
 from api.code_result_api import router as code_result_router
 from api.compat_routes import router as compat_router
+from api.humaneval_routes import router as humaneval_router
 from api.runtime_extra_routes import router as rt_router
 from api.runtime_forward_routes import router as fw_router
 from api.strong_benchmark_routes import router as strong_benchmark_router
@@ -24,3 +25,4 @@ app.include_router(compat_router)
 app.include_router(strong_benchmark_router)
 app.include_router(adapter_router)
 app.include_router(artifact_router)
+app.include_router(humaneval_router)
