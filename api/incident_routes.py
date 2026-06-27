@@ -24,3 +24,8 @@ def plan_incident(body: IncidentIn) -> dict:
 @router.post("/execute")
 def execute_incident(body: IncidentIn) -> dict:
     return controller.execute(route_key=body.route_key, verify_bytes=body.verify_bytes, dry_run=body.dry_run)
+
+
+@router.get("/logs")
+def list_incidents() -> dict:
+    return {"items": controller.list_logs()}
