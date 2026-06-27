@@ -30,9 +30,13 @@ class Catalog:
             "version": body["version"],
             "source_job_id": body.get("source_job_id", "manual"),
             "location": body["location"],
+            "artifact_uri": body.get("artifact_uri") or body.get("location"),
+            "artifact_hash": body.get("artifact_hash") or body.get("digest"),
             "kind": body.get("kind", "adapter"),
             "digest": body.get("digest") or self.digest(body),
             "metrics": body.get("metrics", {}),
+            "proof": body.get("proof") or body.get("node_proof") or body.get("receipt"),
+            "anchor_receipt": body.get("anchor_receipt"),
             "status": body.get("status", "candidate"),
             "notes": body.get("notes", ""),
         }
@@ -47,15 +51,18 @@ class Catalog:
                 return item
         return None
 
-    def set_status(self, item_id: str, status: str) -> dict[str, Any] | None:
+    def patch(self, item_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
         items = self.list()
         found = None
         for item in items:
             if item["id"] == item_id:
-                item["status"] = status
+                item.update(patch)
                 found = item
         self.path.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
         return found
+
+    def set_status(self, item_id: str, status: str) -> dict[str, Any] | None:
+        return self.patch(item_id, {"status": status})
 
     def write_manifest(self, item: dict[str, Any], route: dict[str, Any]) -> dict[str, Any]:
         manifest = {
@@ -65,9 +72,13 @@ class Catalog:
             "catalog_id": item["id"],
             "source_job_id": item["source_job_id"],
             "location": item["location"],
+            "artifact_uri": item.get("artifact_uri") or item["location"],
+            "artifact_hash": item.get("artifact_hash") or item.get("digest"),
             "kind": item["kind"],
             "digest": item["digest"],
             "metrics": item["metrics"],
+            "proof": item.get("proof"),
+            "anchor_receipt": item.get("anchor_receipt"),
             "route": route,
         }
         path = self.manifest_dir / f"{item['name']}--{item['version']}.json"
