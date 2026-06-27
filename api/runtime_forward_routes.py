@@ -16,6 +16,7 @@ runtime_store = RuntimeStore()
 class EndpointIn(BaseModel):
     runtime_id: str
     url: str
+    secret: str | None = None
 
 
 class ForwardIn(BaseModel):
@@ -28,7 +29,7 @@ class ForwardIn(BaseModel):
 
 @router.post("/runtime/endpoints")
 def register_endpoint(body: EndpointIn) -> dict:
-    return endpoints.register(body.runtime_id, body.url)
+    return endpoints.register(body.runtime_id, body.url, body.secret)
 
 
 @router.get("/runtime/endpoints")
@@ -42,8 +43,8 @@ def forward_runtime(body: ForwardIn) -> dict:
     if not routed.get("assigned"):
         raise HTTPException(status_code=404, detail=routed)
     assignment = routed["assignment"]
-    url = endpoints.get(assignment["runtime_id"])
-    if not url:
+    endpoint = endpoints.get(assignment["runtime_id"])
+    if not endpoint:
         raise HTTPException(status_code=404, detail={"reason": "runtime endpoint not registered", "assignment": assignment})
-    result = post_json(url + "/generate", {"model_key": f"{body.model_id}:{body.version}", "prompt": body.prompt, "max_new_tokens": body.max_new_tokens})
-    return {"route": routed, "runtime_url": url, "result": result}
+    result = post_json(endpoint["url"] + "/generate", {"model_key": f"{body.model_id}:{body.version}", "prompt": body.prompt, "max_new_tokens": body.max_new_tokens}, endpoint.get("token"))
+    return {"route": routed, "runtime_url": endpoint["url"], "result": result}
