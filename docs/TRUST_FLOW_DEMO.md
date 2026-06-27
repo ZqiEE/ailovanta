@@ -4,32 +4,36 @@ This demo proves the decentralized artifact path without treating the API server
 
 ## Start API
 
-Local demo anchor:
+Strict local demo with mock notary:
 
 ```bash
 export AILOVANTA_CHAIN_ANCHOR=http
 export AILOVANTA_CHAIN_ANCHOR_URI=http://127.0.0.1:8000/notary/mock/anchor
+export AILOVANTA_NODE_SECRETS_JSON='{"demo-node":"demo-secret"}'
 uvicorn api.main_code:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Strict worker proof mode:
+PowerShell:
 
-```bash
-export AILOVANTA_NODE_SECRETS_JSON='{"demo-node":"demo-secret"}'
+```powershell
+$env:AILOVANTA_CHAIN_ANCHOR="http"
+$env:AILOVANTA_CHAIN_ANCHOR_URI="http://127.0.0.1:8000/notary/mock/anchor"
+$env:AILOVANTA_NODE_SECRETS_JSON='{"demo-node":"demo-secret"}'
+uvicorn api.main_code:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## Run full trust flow
 
-Loose demo mode:
+Strict receipt verification is the default:
 
 ```bash
 python scripts/demo_trust_flow.py
 ```
 
-Strict receipt verification:
+Loose mode is only for debugging an API that has no node secret configured:
 
 ```bash
-python scripts/demo_trust_flow.py --require-valid
+python scripts/demo_trust_flow.py --loose
 ```
 
 ## What it does
@@ -56,6 +60,18 @@ artifact_hash
 worker receipt
 anchor_receipt
 runtime manifest
+```
+
+## Gate rules
+
+Publish should fail unless:
+
+```text
+artifact_hash starts with sha256:
+worker receipt is valid
+worker receipt checkpoint_hash matches artifact_hash
+anchor_receipt exists
+anchor_receipt references the same hash
 ```
 
 ## Production replacements
