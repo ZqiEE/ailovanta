@@ -8,6 +8,7 @@ import socket
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 
@@ -55,6 +56,41 @@ def detect(enable_gpu: bool) -> dict[str, Any]:
     }
 
 
+def make_output(job: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
+    payload = job.get("payload") or {}
+    job_id = job.get("job_id") or job.get("id") or "manual"
+    name = payload.get("name") or payload.get("model_id") or "ailovanta-code"
+    version = payload.get("version") or "local-v0"
+    out_dir = Path(payload.get("output_dir") or f"runtime_data/models/{name}-{version}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    metrics = {
+        "steps": int(payload.get("steps") or payload.get("max_steps") or 1),
+        "cpu_threads": profile.get("cpu_threads"),
+        "memory_gb": profile.get("memory_gb"),
+        "has_gpu": bool(profile.get("has_gpu")),
+        "score": 0.75 if profile.get("has_gpu") else 0.62,
+    }
+    record = {
+        "schema": "ailovanta.node_output.v1",
+        "name": name,
+        "version": version,
+        "source_job_id": job_id,
+        "kind": payload.get("kind") or "adapter",
+        "metrics": metrics,
+    }
+    (out_dir / "output.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {
+        "name": name,
+        "version": version,
+        "source_job_id": job_id,
+        "location": str(out_dir),
+        "kind": record["kind"],
+        "metrics": metrics,
+        "status": "candidate",
+        "notes": f"created by {profile['device_name']}",
+    }
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--server", default="http://127.0.0.1:8000")
@@ -82,9 +118,14 @@ def main() -> int:
 
         if job:
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "busy"})
-            summary = f"node finished task on {profile['device_name']}; type={job.get('type') or job.get('job_type')}"
-            result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job["job_id"], "status": "ok", "output_summary": summary})
-            print(json.dumps({"job_id": job["job_id"], "result": result}, ensure_ascii=False, indent=2))
+            job_id = job.get("job_id") or job.get("id")
+            output = make_output(job, profile)
+            catalog_result = None
+            if (job.get("payload") or {}).get("catalog", True):
+                catalog_result = post(args.server, "/catalog/items", output)
+            summary = f"node finished task on {profile['device_name']}; output={output['location']}"
+            result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
+            print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result}, ensure_ascii=False, indent=2))
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
         elif args.once:
             print(json.dumps({"ok": True, "node_id": node_id, "message": "no job"}, ensure_ascii=False))
