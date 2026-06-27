@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException
 
 from api.anchor_adapter import get_anchor_adapter
@@ -10,23 +13,47 @@ router = APIRouter()
 catalog = Catalog()
 
 
+def file_hash_from_uri(uri: str | None) -> str | None:
+    if not uri or not uri.startswith("file://"):
+        return None
+    path = Path(uri.removeprefix("file://"))
+    if not path.exists():
+        return None
+    h = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            h.update(chunk)
+    return "sha256:" + h.hexdigest()
+
+
 @router.post("/catalog/items/{item_id}/notarize")
 def notarize_catalog_item(item_id: str) -> dict:
     item = catalog.get(item_id)
     if not item:
         raise HTTPException(status_code=404, detail="item not found")
+    artifact_manifest = item.get("artifact_manifest") or {}
+    manifest_uri = artifact_manifest.get("uri") or artifact_manifest.get("manifest_uri") if isinstance(artifact_manifest, dict) else None
+    manifest_hash = artifact_manifest.get("manifest_hash") if isinstance(artifact_manifest, dict) else None
+    manifest_hash = manifest_hash or file_hash_from_uri(manifest_uri)
     payload = {
         "catalog_id": item["id"],
         "name": item["name"],
         "version": item["version"],
         "artifact_uri": item.get("artifact_uri") or item.get("location"),
         "artifact_hash": item.get("artifact_hash") or item.get("digest"),
+        "artifact_manifest": artifact_manifest,
+        "artifact_manifest_hash": manifest_hash,
         "receipt": item.get("proof"),
     }
     if not payload["artifact_hash"]:
         raise HTTPException(status_code=400, detail="artifact hash required")
     if not payload["receipt"]:
         raise HTTPException(status_code=400, detail="worker receipt required")
+    if not payload["artifact_manifest"]:
+        raise HTTPException(status_code=400, detail="artifact manifest required")
     anchor_receipt = get_anchor_adapter().anchor(payload).to_dict()
-    item = catalog.patch(item_id, {"anchor_receipt": anchor_receipt}) or item
+    patch = {"anchor_receipt": anchor_receipt}
+    if manifest_hash and isinstance(artifact_manifest, dict):
+        patch["artifact_manifest"] = {**artifact_manifest, "manifest_hash": manifest_hash}
+    item = catalog.patch(item_id, patch) or item
     return {"item": item, "anchor_receipt": anchor_receipt}
