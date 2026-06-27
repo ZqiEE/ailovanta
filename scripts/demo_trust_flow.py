@@ -42,7 +42,7 @@ def main() -> int:
     parser.add_argument("--node-id", default="demo-node")
     parser.add_argument("--node-secret", default="demo-secret")
     parser.add_argument("--artifact-path", default="runtime_data/trust_demo/output.json")
-    parser.add_argument("--require-valid", action="store_true")
+    parser.add_argument("--loose", action="store_true", help="allow cataloging even if API is not configured with node secrets")
     args = parser.parse_args()
 
     path = make_demo_file(Path(args.artifact_path), args.name, args.version)
@@ -69,7 +69,7 @@ def main() -> int:
         "version": args.version,
         "kind": "adapter",
         "metrics": {"score": 0.8, "demo": True},
-        "require_valid": bool(args.require_valid),
+        "require_valid": not args.loose,
     })
     item_id = cataloged["item"]["id"]
 
@@ -85,6 +85,7 @@ def main() -> int:
 
     print(json.dumps({
         "ok": True,
+        "mode": "loose" if args.loose else "strict",
         "artifact": stored,
         "receipt": receipt,
         "catalog": cataloged,
@@ -93,7 +94,7 @@ def main() -> int:
         "published": published,
         "loaded": loaded,
         "generated": generated,
-        "note": "For strict proof validation, run API with AILOVANTA_NODE_SECRETS_JSON containing the same node secret and pass --require-valid.",
+        "note": "Strict mode requires API env AILOVANTA_NODE_SECRETS_JSON with the same node secret.",
     }, ensure_ascii=False, indent=2))
     return 0
 
