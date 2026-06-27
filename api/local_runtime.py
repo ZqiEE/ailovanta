@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from api.artifact_fetch import fetch_artifact
+from api.content_gateway import fetch_content_uri
 from api.object_store import get_object
 
 
@@ -38,13 +39,14 @@ class LocalRuntime:
             target = cache_root / Path(key).name
             obj = get_object(key, str(target), bucket)
             return {"kind": "s3", "path": obj["output_path"], "object": obj}
+        if location.startswith("ipfs://"):
+            item = fetch_content_uri(location, str(cache_root))
+            return {"kind": "content_gateway", "path": item.get("extracted_to") or item["path"], "artifact": item}
         if location.startswith(("http://", "https://")):
             item = fetch_artifact(location, str(cache_root), extract=True)
             return {"kind": "http", "path": item.get("extracted_to") or item["path"], "artifact": item}
         if location.startswith("file://"):
             return {"kind": "file_uri", "path": location.removeprefix("file://")}
-        if location.startswith("ipfs://"):
-            return {"kind": "ipfs", "path": str(cache_root), "message": "ipfs gateway adapter not configured"}
         return {"kind": "local", "path": location}
 
     def generate(self, model_key: str, prompt: str, max_new_tokens: int = 128) -> dict[str, Any]:
