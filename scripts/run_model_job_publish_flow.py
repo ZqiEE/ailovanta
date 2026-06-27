@@ -71,19 +71,20 @@ def main() -> int:
         replicas=[stored["artifact_uri"]],
         metadata={"name": name, "version": version, "source_job_id": args.source_id, "kind": job_result["kind"]},
     )
+    manifest_hash = artifact_manifest["manifest_hash"]
 
     receipt = signed_result({
         "task_id": args.source_id,
         "checkpoint_uri": stored["artifact_uri"],
         "checkpoint_hash": stored["artifact_hash"],
         "artifact_manifest_uri": manifest_path.resolve().as_uri(),
-        "artifact_manifest_hash": artifact_manifest["artifact_hash"],
+        "artifact_manifest_hash": manifest_hash,
         "token_count": int((job_result.get("metrics") or {}).get("steps") or 0),
         "train_loss": 0.0,
         "eval_loss": 0.0,
     }, node_id=args.node_id, secret=args.node_secret)
 
-    metrics = {**job_result.get("metrics", {}), "artifact_manifest": {"uri": manifest_path.resolve().as_uri(), "chunk_count": artifact_manifest["chunk_count"], "chunk_size": artifact_manifest["chunk_size"]}}
+    metrics = {**job_result.get("metrics", {}), "artifact_manifest": {"uri": manifest_path.resolve().as_uri(), "manifest_hash": manifest_hash, "chunk_count": artifact_manifest["chunk_count"], "chunk_size": artifact_manifest["chunk_size"]}}
     cataloged = call("POST", args.server, "/catalog/from-receipt", {
         "receipt": receipt,
         "name": name,
