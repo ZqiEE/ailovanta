@@ -1,0 +1,83 @@
+name: Release Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      core_path:
+        description: "Path to ailovanta-core inside the runner"
+        required: false
+        default: "../ailovanta-core"
+      result_path:
+        description: "Foundation result path"
+        required: false
+        default: "runtime_data/local_loop/foundation_result.json"
+      verify_bytes:
+        description: "Verify artifact bytes"
+        required: false
+        default: "true"
+
+jobs:
+  release-check:
+    runs-on: ubuntu-latest
+    env:
+      AILOVANTA_RATE_LIMIT_ENABLED: "true"
+      AILOVANTA_RATE_LIMIT_PER_MINUTE: "120"
+      AILOVANTA_RATE_LIMIT_WINDOW_SECONDS: "60"
+      AILOVANTA_ADMIN_TOKEN: "ci-admin-token"
+      AILOVANTA_NODE_SECRETS_JSON: '{"ci-node":"ci-secret"}'
+      AILOVANTA_REQUIRE_NODE_PROOF: "true"
+      AILOVANTA_MIN_AVG_TRUST_SCORE: "0.75"
+      AILOVANTA_PUBLIC_BASE_URL: "https://ci.local"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate import/schema checks
+        run: python validate.py
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Run final release gate
+        id: release_gate
+        shell: bash
+        run: |
+          mkdir -p runtime_data/reports
+          CORE_PATH="${{ github.event.inputs.core_path || '../ailovanta-core' }}"
+          RESULT_PATH="${{ github.event.inputs.result_path || 'runtime_data/local_loop/foundation_result.json' }}"
+          VERIFY_BYTES="${{ github.event.inputs.verify_bytes || 'true' }}"
+          EXTRA=""
+          if [ "$VERIFY_BYTES" = "true" ]; then
+            EXTRA="--verify-bytes"
+          fi
+          set +e
+          python scripts/check_release.py \
+            --core-path "$CORE_PATH" \
+            --result "$RESULT_PATH" \
+            --route-key owned-chat/default \
+            $EXTRA | tee runtime_data/reports/release_gate.json
+          STATUS=${PIPESTATUS[0]}
+          echo "exit_code=$STATUS" >> "$GITHUB_OUTPUT"
+          exit $STATUS
+
+      - name: Upload release gate report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-report
+          path: runtime_data/reports/release_gate.json
+          if-no-files-found: warn
