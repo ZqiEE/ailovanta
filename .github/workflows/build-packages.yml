@@ -1,0 +1,35 @@
+name: Build Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version"
+        required: false
+        default: "v0.1.0"
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build files
+        shell: bash
+        run: python scripts/make_dist.py --version "${{ github.event.inputs.version }}"
+
+      - name: Upload files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ailovanta-packages
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/install_linux.sh
+            dist/install_windows.ps1
