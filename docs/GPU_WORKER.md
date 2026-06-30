@@ -103,6 +103,27 @@ runtime_data/models/<job-name>-<version>/output.json
 
 If Transformers/CUDA/PEFT are installed and the job requests them, `api.model_job` can run a Transformers/LoRA path. Otherwise it still performs real local lightweight n-gram training over the dataset instead of writing a fake success file.
 
+Full-auto source training now queues real model jobs by default:
+
+```text
+real=true
+use_transformers=true
+peft/lora=true by default
+requires_gpu=true by default
+allow_lightweight_fallback=false by default
+```
+
+That means a full-auto model job should fail honestly when the node cannot run the configured real backend. It should not silently produce a lightweight artifact for a job that requested real LoRA/QLoRA training.
+
+Configure the model backend at launch:
+
+```powershell
+.\start_full_auto_windows.bat -BaseModel sshleifer/tiny-gpt2 -TrainingBackend lora
+.\start_full_auto_windows.bat -BaseModel codellama/CodeLlama-7b-hf -TrainingBackend qlora
+```
+
+Use `-AllowLightweightFallback` only for pipeline smoke tests. Do not use it when validating the real self-trained model goal.
+
 The old `seed_training_job_windows.bat` command is only a deterministic smoke-test helper. Use `start_auto_training_windows.bat` for the real autonomous path.
 
 After a local training artifact is produced, the worker first binds it to `ailovanta-owned:candidate` as a candidate. Owned chat can route through it only after the promotion gate marks the binding `active`. The binding also writes:

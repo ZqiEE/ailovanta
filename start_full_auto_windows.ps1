@@ -4,6 +4,11 @@ param(
   [int]$MaxDiscoveryQueries = 5,
   [int]$MaxRecords = 512,
   [int]$MaxSteps = 16,
+  [string]$BaseModel = "sshleifer/tiny-gpt2",
+  [ValidateSet("lora", "qlora", "transformers")]
+  [string]$TrainingBackend = "lora",
+  [switch]$AllowLightweightFallback,
+  [switch]$NoRequireGpu,
   [int]$AutoInterval = 1800,
   [int]$WorkerInterval = 10,
   [int]$ReplicaInterval = 60,
@@ -115,9 +120,17 @@ $AutoArgs = @(
   "--max-discovery-queries", "$MaxDiscoveryQueries",
   "--max-records", "$MaxRecords",
   "--max-steps", "$MaxSteps",
+  "--base-model", "$BaseModel",
+  "--training-backend", "$TrainingBackend",
   "--loop",
   "--interval", "$AutoInterval"
 )
+if ($AllowLightweightFallback) {
+  $AutoArgs += "--allow-lightweight-fallback"
+}
+if ($NoRequireGpu) {
+  $AutoArgs += "--no-require-gpu"
+}
 $AutoProcess = Start-Process -FilePath $Python -ArgumentList $AutoArgs -WorkingDirectory $Root -PassThru -WindowStyle Hidden
 
 Write-Step "Starting local GPU/CPU training worker"
@@ -152,6 +165,10 @@ $State = @{
   max_discovery_queries = $MaxDiscoveryQueries
   max_records = $MaxRecords
   max_steps = $MaxSteps
+  base_model = $BaseModel
+  training_backend = $TrainingBackend
+  require_gpu = !$NoRequireGpu
+  allow_lightweight_fallback = [bool]$AllowLightweightFallback
   replica_interval = $ReplicaInterval
   started_at = (Get-Date).ToString("s")
 }

@@ -26,6 +26,10 @@ def main() -> int:
     parser.add_argument("--max-discovery-queries", type=int, default=5)
     parser.add_argument("--max-records", type=int, default=512)
     parser.add_argument("--max-steps", type=int, default=16)
+    parser.add_argument("--base-model", default="sshleifer/tiny-gpt2")
+    parser.add_argument("--training-backend", choices=["lora", "qlora", "transformers"], default="lora")
+    parser.add_argument("--allow-lightweight-fallback", action="store_true")
+    parser.add_argument("--no-require-gpu", action="store_true")
     parser.add_argument("--corpus-mode", choices=["instructions", "code", "mixed"], default="mixed")
     parser.add_argument("--loop", action="store_true")
     parser.add_argument("--interval", type=int, default=1800)
@@ -42,6 +46,10 @@ def main() -> int:
             max_records=args.max_records,
             corpus_mode=args.corpus_mode,
             max_steps=args.max_steps,
+            base_model=args.base_model,
+            training_backend=args.training_backend,
+            require_gpu=not args.no_require_gpu,
+            allow_lightweight_fallback=args.allow_lightweight_fallback,
             frontier_path=args.frontier,
             max_discovery_queries=args.max_discovery_queries,
             ledger_path=args.ledger,

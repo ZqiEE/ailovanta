@@ -150,6 +150,15 @@ def main() -> int:
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "busy"})
             job_id = job.get("job_id") or job.get("id")
             output = make_output(job, profile)
+            if output.get("status") == "failed":
+                summary = f"node failed task on {profile['device_name']}; reason={output.get('notes')}"
+                result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "failed", "output_summary": summary})
+                print(json.dumps({"job_id": job_id, "result": result, "training_output": output}, ensure_ascii=False, indent=2))
+                post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
+                if args.once:
+                    return 0
+                time.sleep(max(3, args.interval))
+                continue
             catalog_result = None
             if (job.get("payload") or {}).get("catalog", True):
                 catalog_result = try_post(args.server, "/catalog/items", output)

@@ -71,6 +71,42 @@ def test_run_model_job_trains_lightweight_artifact(tmp_path: Path) -> None:
     assert record["backend_message"].startswith("trained lightweight n-gram artifact")
 
 
+def test_run_model_job_strict_real_training_does_not_fallback_to_lightweight(tmp_path: Path) -> None:
+    dataset = write_dataset(tmp_path / "train.jsonl")
+    output_dir = tmp_path / "strict-model"
+
+    result = run_model_job(
+        {
+            "name": "strict-real",
+            "version": "v1",
+            "dataset_uri": "file://" + str(dataset),
+            "base_model": str(tmp_path / "missing-base-model"),
+            "max_steps": 1,
+            "output_dir": str(output_dir),
+            "real": True,
+            "use_transformers": True,
+            "peft": True,
+            "lora": True,
+            "allow_lightweight_fallback": False,
+        },
+        {"cpu_threads": 4, "memory_gb": 16, "has_gpu": True},
+        "job-strict-real",
+    )
+
+    record = json.loads((output_dir / "output.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "failed"
+    assert result["metrics"]["backend"] in {
+        "transformers_deps_missing",
+        "transformers_training_failed",
+        "peft_setup_failed",
+        "qlora_deps_missing",
+    }
+    assert result["metrics"]["score"] == 0.0
+    assert not (output_dir / "ngram_model.json").exists()
+    assert record["kind"] == "training_failed"
+
+
 def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:
     dataset = write_dataset(tmp_path / "train.jsonl")
     output_dir = tmp_path / "node-model"

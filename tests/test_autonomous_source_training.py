@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from api.autonomous_source_training import corpus_to_training_dataset, run_autonomous_source_training_cycle, training_text_from_record
+from api.autonomous_source_training import build_autonomous_training_job_payload, corpus_to_training_dataset, run_autonomous_source_training_cycle, training_text_from_record
 
 
 def test_training_text_from_instruction_record() -> None:
@@ -90,7 +90,29 @@ def test_autonomous_source_training_cycle_queues_job(monkeypatch, tmp_path: Path
     assert result["dataset"]["records"] > 0
     assert posted["path"] == "/training/jobs"
     assert posted["body"]["kind"] == "lora_micro"
+    assert posted["body"]["real"] is True
+    assert posted["body"]["use_transformers"] is True
+    assert posted["body"]["peft"] is True
+    assert posted["body"]["lora"] is True
+    assert posted["body"]["requires_gpu"] is True
+    assert posted["body"]["allow_lightweight_fallback"] is False
     assert posted["body"]["dataset_uri"].startswith("file://")
+
+
+def test_autonomous_training_payload_supports_qlora() -> None:
+    payload = build_autonomous_training_job_payload(
+        dataset_path="runtime_data/train.jsonl",
+        max_steps=32,
+        base_model="codellama/CodeLlama-7b-hf",
+        training_backend="qlora",
+    )
+
+    assert payload["kind"] == "lora_micro"
+    assert payload["base_model"] == "codellama/CodeLlama-7b-hf"
+    assert payload["real"] is True
+    assert payload["qlora"] is True
+    assert payload["requires_gpu"] is True
+    assert payload["allow_lightweight_fallback"] is False
 
 
 def test_limit_sources_prefers_high_discovery_score(tmp_path: Path) -> None:

@@ -37,6 +37,10 @@ def run_autonomous_source_training_cycle(
     max_records: int = 512,
     corpus_mode: str = "mixed",
     max_steps: int = 16,
+    base_model: str = "sshleifer/tiny-gpt2",
+    training_backend: str = "lora",
+    require_gpu: bool = True,
+    allow_lightweight_fallback: bool = False,
     frontier_path: str | Path = "runtime_data/github_source_frontier.json",
     max_discovery_queries: int = 5,
     ledger_path: str | Path = "runtime_data/continuous_training_ledger.json",
@@ -81,17 +85,18 @@ def run_autonomous_source_training_cycle(
             "dataset": dataset,
         }
 
+    job_payload = build_autonomous_training_job_payload(
+        dataset_path=dataset_path,
+        max_steps=max_steps,
+        base_model=base_model,
+        training_backend=training_backend,
+        require_gpu=require_gpu,
+        allow_lightweight_fallback=allow_lightweight_fallback,
+    )
     job = post_json(
         server,
         "/training/jobs",
-        {
-            "kind": "lora_micro",
-            "name": "ailovanta-auto-source",
-            "dataset_uri": "file://" + str(dataset_path.resolve()),
-            "base_model": "ailovanta-auto-bootstrap",
-            "max_steps": max_steps,
-            "notes": "autonomous source discovery -> ingest -> training job",
-        },
+        job_payload,
     )
     ledger = record_training_batch(
         ledger_path,
@@ -112,9 +117,43 @@ def run_autonomous_source_training_cycle(
         "ingest": compact_ingest(ingest),
         "dataset": dataset,
         "job": job,
+        "job_payload": job_payload,
         "ledger": {"path": str(ledger_path), "sources": len(ledger.get("sources", {})), "batches": len(ledger.get("batches", {}))},
         "created_at": round(time.time(), 3),
     }
+
+
+def build_autonomous_training_job_payload(
+    *,
+    dataset_path: str | Path,
+    max_steps: int,
+    base_model: str,
+    training_backend: str = "lora",
+    require_gpu: bool = True,
+    allow_lightweight_fallback: bool = False,
+) -> dict[str, Any]:
+    backend = training_backend.lower().strip()
+    if backend not in {"lora", "qlora", "transformers"}:
+        raise ValueError("training_backend must be one of: lora, qlora, transformers")
+    payload: dict[str, Any] = {
+        "kind": "lora_micro",
+        "name": "ailovanta-auto-source",
+        "dataset_uri": "file://" + str(Path(dataset_path).resolve()),
+        "base_model": base_model,
+        "max_steps": max_steps,
+        "real": True,
+        "use_transformers": True,
+        "requires_gpu": require_gpu,
+        "allow_lightweight_fallback": allow_lightweight_fallback,
+        "priority": 100 if require_gpu else 80,
+        "notes": "autonomous source discovery -> ingest -> real Transformers/LoRA training job",
+    }
+    if backend in {"lora", "qlora"}:
+        payload["peft"] = True
+        payload["lora"] = True
+    if backend == "qlora":
+        payload["qlora"] = True
+    return payload
 
 
 def discover_sources_if_needed(output_path: Path, enabled: bool, frontier_path: str | Path = "runtime_data/github_source_frontier.json", max_queries: int = 5) -> dict[str, Any]:

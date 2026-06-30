@@ -4,6 +4,11 @@ param(
   [int]$MaxDiscoveryQueries = 5,
   [int]$MaxRecords = 512,
   [int]$MaxSteps = 16,
+  [string]$BaseModel = "sshleifer/tiny-gpt2",
+  [ValidateSet("lora", "qlora", "transformers")]
+  [string]$TrainingBackend = "lora",
+  [switch]$AllowLightweightFallback,
+  [switch]$NoRequireGpu,
   [switch]$Loop,
   [int]$Interval = 1800,
   [switch]$SkipInstall
@@ -32,8 +37,18 @@ $ArgsList = @(
   "--max-sources", "$MaxSources",
   "--max-discovery-queries", "$MaxDiscoveryQueries",
   "--max-records", "$MaxRecords",
-  "--max-steps", "$MaxSteps"
+  "--max-steps", "$MaxSteps",
+  "--base-model", "$BaseModel",
+  "--training-backend", "$TrainingBackend"
 )
+
+if ($AllowLightweightFallback) {
+  $ArgsList += "--allow-lightweight-fallback"
+}
+
+if ($NoRequireGpu) {
+  $ArgsList += "--no-require-gpu"
+}
 
 if ($Loop) {
   $ArgsList += "--loop"
