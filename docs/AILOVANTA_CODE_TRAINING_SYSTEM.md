@@ -314,17 +314,36 @@ python scripts/run_code_repair_loop.py \
   --max-candidates-per-failure 16
 ```
 
+Use the private core candidate generator while keeping public verification:
+
+```bash
+python scripts/run_code_repair_loop.py \
+  runtime_data/code_task_reports.json \
+  --output runtime_data/code_repair_results.json \
+  --candidate-command "python ../ailovanta-core/scripts/generate_code_repair_candidates.py" \
+  --max-candidates-per-failure 16
+```
+
+The full autonomous loop can use the same bridge:
+
+```bash
+python scripts/run_autonomous_code_training_loop.py \
+  --sources runtime_data/github_code_sources.json \
+  --core-path ../ailovanta-core \
+  --repair-candidate-command "python ../ailovanta-core/scripts/generate_code_repair_candidates.py"
+```
+
 The repair loop:
 
 ```text
 reads failed executable task reports
-generates bounded repair candidate tasks
+generates bounded repair candidate tasks locally or through private core
 re-runs the same sandboxed verification commands
 keeps only test-passing repairs as verified samples
 exports chosen/rejected preference pairs for repair training and reward learning
 ```
 
-The built-in candidate generator starts with deterministic Python operator mutations so the system can self-repair simple failing test/spec tasks without claiming a model solved them. The same loop is designed to accept stronger private model-generated repair candidates later, but the gate remains the executable verifier.
+The built-in candidate generator starts with deterministic Python operator mutations so the system can self-repair simple failing test/spec tasks without claiming a model solved them. The private core command uses the same external candidate protocol and can later switch from deterministic candidates to checkpoint/model-generated candidates. The gate remains the executable verifier.
 
 Run verified samples through the owned foundation pipeline:
 
@@ -382,6 +401,7 @@ source manifest / GitHub discovery
 -> verified_code_samples.json
 -> failed_code_samples.json for negative/repair/reward signals
 -> code_repair_results.json for auto-repair attempts and preference pairs
+-> optional private core repair candidate command
 -> repaired passing tasks merged back into verified_code_samples.json
 -> foundation job
 -> core checkpoint execution

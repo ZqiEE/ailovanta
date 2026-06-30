@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 
 from api.code_repair_loop import repair_failed_task, repair_failures_from_reports
 from api.code_task_builder import task_from_instruction_record
@@ -48,3 +49,38 @@ def test_repair_failures_from_reports_writes_export(tmp_path) -> None:
     payload = json.loads((tmp_path / "repairs.json").read_text(encoding="utf-8"))
     assert payload["schema_version"] == "ailovanta.code_repair_export.v1"
     assert payload["preference_pairs"][0]["reward"]["chosen_test_passed"] is True
+
+
+def test_repair_loop_accepts_external_candidate_command(tmp_path) -> None:
+    task = _failing_task()
+    failed_report = run_code_instruction_task(task).report
+    generator = tmp_path / "generator.py"
+    generator.write_text(
+        "\n".join(
+            [
+                "import argparse, json",
+                "p = argparse.ArgumentParser()",
+                "p.add_argument('--input')",
+                "p.add_argument('--output')",
+                "p.add_argument('--max-candidates')",
+                "args = p.parse_args()",
+                "payload = {",
+                "  'schema_version': 'ailovanta.core.code_repair_candidates.v1',",
+                "  'count': 1,",
+                "  'candidates': [{'candidate_id': 'core_demo', 'strategy': 'core:test_candidate', 'files': {'app.py': 'def add(left, right):\\n    return left + right\\n'}}],",
+                "}",
+                "open(args.output, 'w', encoding='utf-8').write(json.dumps(payload))",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = repair_failed_task(
+        task,
+        failed_report,
+        max_candidates=1,
+        candidate_command=f"{sys.executable} {generator}",
+    )
+
+    assert result["verified_report_items"]
+    assert result["attempts"][0]["strategy"] == "core:test_candidate"

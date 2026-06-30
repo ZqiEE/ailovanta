@@ -44,6 +44,7 @@ class AutonomousCodeTrainingLoop:
         training_command: str | None = None,
         repair_failures: bool = True,
         max_repair_candidates: int = 16,
+        repair_candidate_command: str | None = None,
     ) -> dict[str, Any]:
         run_id = "auto_code_" + uuid4().hex[:12]
         run_dir = self.runs_dir / run_id
@@ -79,7 +80,12 @@ class AutonomousCodeTrainingLoop:
         failures = export_failures_from_reports(report_items, failures_path)
         repairs_path = run_dir / "code_repair_results.json"
         repairs = (
-            repair_failures_from_reports(report_items, repairs_path, max_candidates_per_failure=max_repair_candidates)
+            repair_failures_from_reports(
+                report_items,
+                repairs_path,
+                max_candidates_per_failure=max_repair_candidates,
+                candidate_command=repair_candidate_command,
+            )
             if repair_failures
             else self._write_empty_repairs(repairs_path)
         )
