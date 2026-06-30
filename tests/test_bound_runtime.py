@@ -21,9 +21,11 @@ def test_bound_runtime_loads_checkpoint_metadata(tmp_path: Path) -> None:
         backend_ref="file://" + str(checkpoint),
         status="active",
     )
+
     result = ArtifactBoundRuntime(store).chat("hello", "ailovanta-owned", "candidate")
+
     assert result["source"] == "artifact-bound-checkpoint"
-    assert "owned runtime" in result["answer"]
+    assert "不是已训练完成" in result["answer"]
     assert "Token count" not in result["answer"]
 
 
@@ -43,12 +45,13 @@ def test_bound_runtime_answers_training_boundary_directly(tmp_path: Path) -> Non
     identity = ArtifactBoundRuntime(store).chat("你是什么大模型", "ailovanta-owned", "candidate")["answer"]
     followup = ArtifactBoundRuntime(store).chat("我问你呢", "ailovanta-owned", "candidate")["answer"]
 
-    assert "bootstrap checkpoint" in trained
+    assert "没有" in trained
+    assert "不是自训练完成的大模型权重" in trained
     assert "artifact" in identity
-    assert "bootstrap binding" in followup
+    assert "没有已激活的自训练生成模型" in followup
 
 
-def test_bound_runtime_uses_lightweight_ngram_artifact(tmp_path: Path) -> None:
+def test_bound_runtime_lightweight_ngram_does_not_claim_trained_model(tmp_path: Path) -> None:
     model = tmp_path / "ngram_model.json"
     model.write_text(
         json.dumps(
@@ -72,10 +75,13 @@ def test_bound_runtime_uses_lightweight_ngram_artifact(tmp_path: Path) -> None:
     )
 
     code = ArtifactBoundRuntime(store).chat("你会写代码吗", "ailovanta-owned", "candidate")
+    trained = ArtifactBoundRuntime(store).chat("你训练了吗", "ailovanta-owned", "candidate")
     persona = ArtifactBoundRuntime(store).chat("你是女的吗", "ailovanta-owned", "candidate")
 
     assert code["source"] == "artifact-bound-lightweight-ngram"
-    assert "本地训练 artifact" in code["answer"]
+    assert "不会" in code["answer"]
+    assert "不是能写代码的自训练大模型" in code["answer"]
+    assert "没有训练出可对话/可写代码的大模型" in trained["answer"]
     assert "没有真实性别" in persona["answer"]
 
 

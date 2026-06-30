@@ -90,24 +90,21 @@ def build_checkpoint_bound_answer(prompt: str, binding: dict[str, Any], checkpoi
 
     if asks_training_status(text, lowered):
         return cn(
-            "直接说：当前聊天链路是 Ailovanta 自己的 owned runtime，但这个绑定还是 bootstrap checkpoint，"
-            "不是已经完整自训练出来的大模型。训练 worker 产出的 artifact 需要绑定进 runtime 后，聊天才会用最新训练产物。"
+            "没有。当前 runtime 只加载了 bootstrap/checkpoint 元数据，不是自训练完成的大模型权重。"
+            "训练流程可以运行，但这个绑定本身不能证明模型已经训练好，也不能冒充会对话或会写代码的模型。"
         )
     if asks_model_identity(text, lowered):
         return cn(
-            f"我是 Ailovanta 本地 owned runtime 的 bootstrap 助手。当前绑定模型是 {model_key}，"
-            f"artifact 是 {artifact_hash}，backend 是 {backend}。这不是外部大模型，也还不是最终 foundation model。"
+            f"当前不是已训练完成的大模型。model={model_key}，artifact={artifact_hash}，backend={backend}。"
+            "这是 runtime/checkpoint 绑定状态，不是可生成代码的自训练权重。"
         )
     if asks_code_ability(text, lowered):
-        return cn("会写代码，但当前 bootstrap binding 只能做基础回答。下一步应切到训练后的 artifact 或 Transformers/LoRA 后端。")
+        return cn("当前这个绑定不会写代码。它不是通过训练得到的代码生成模型；必须接入并通过评测的 Transformers/LoRA 权重后才算。")
     if asks_persona(text, lowered):
-        return cn("我没有真实性别。我是 Ailovanta 本地运行的 AI runtime 助手。")
-    if any(word in lowered for word in ("hello", "hi", "hey")) or contains_any(text, ("你好", "在吗", "在不在")):
-        return cn("我在。Ailovanta 本地 owned runtime 已经接通，你可以继续问我问题。")
-    return cn(
-        "我收到你的问题了。当前回答来自 Ailovanta owned runtime 的 bootstrap binding；"
-        "如果已经完成训练，请把最新训练 artifact 绑定到 runtime，聊天会切到训练产物。"
-    )
+        return cn("我没有真实性别。当前回答来自 Ailovanta runtime 状态层，不是自训练大模型人格。")
+    if is_greeting(text, lowered):
+        return cn("我在。Ailovanta runtime 已接通，但当前不是已训练完成的自有大模型。")
+    return cn("当前只能报告 runtime/checkpoint 绑定状态；没有已激活的自训练生成模型在回答这个问题。")
 
 
 def build_lightweight_ngram_answer(prompt: str, binding: dict[str, Any], model: dict[str, Any]) -> str:
@@ -120,39 +117,40 @@ def build_lightweight_ngram_answer(prompt: str, binding: dict[str, Any], model: 
 
     if asks_code_ability(text, lowered):
         return cn(
-            f"会。当前聊天已经绑定到本地训练 artifact：{artifact_hash}。"
-            f"这个轻量模型从 {rows} 条训练样本里学习了 Ailovanta 的代码训练/worker/runtime 说明，"
-            f"训练 transitions={transitions}，train_loss={loss}。"
-            "现在它还不是完整代码大模型，但链路已经是真训练产物驱动；下一步要接入 Transformers/LoRA 后端提升代码生成能力。"
+            "不会。当前绑定的是 lightweight-ngram 训练链路证明，不是能写代码的自训练大模型。"
+            f"artifact={artifact_hash}，rows={rows}，transitions={transitions}，train_loss={loss}。"
+            "只有 Transformers/LoRA 权重通过可执行代码生成 benchmark 后，才能说模型会写代码。"
         )
     if asks_persona(text, lowered):
-        return cn(
-            "我没有真实性别。我是 Ailovanta 本地 owned runtime 加载的训练 artifact。"
-            "你可以给我设定产品人格，但系统本身不是男或女。"
-        )
+        return cn("我没有真实性别。当前不是自训练大模型人格，只是 runtime 对 lightweight-ngram 状态的说明。")
     if asks_training_status(text, lowered):
         return cn(
-            f"是，当前这次回答已经来自你本机 worker 训练出来的本地 artifact。"
-            f"训练样本 {rows} 条，transitions={transitions}，train_loss={loss}。"
-            "但它是 lightweight n-gram 训练产物，不是最终大参数 foundation model。"
+            "严格说：没有训练出可对话/可写代码的大模型。"
+            f"现在只有 lightweight-ngram 训练链路证明，rows={rows}，transitions={transitions}，train_loss={loss}。"
+            "它说明 worker 跑过训练步骤，但不等于自训练大模型已经可用。"
         )
     if asks_model_identity(text, lowered):
         return cn(
-            f"我是 Ailovanta owned runtime 当前绑定的 lightweight-ngram 本地训练 artifact，artifact={artifact_hash}。"
-            f"它由你的本机 worker 训练生成，rows={rows}，train_loss={loss}。"
+            f"当前不是大模型。runtime 绑定的是 lightweight-ngram artifact={artifact_hash}，rows={rows}，train_loss={loss}。"
+            "这是训练流程的轻量证明，不是可生成代码的自训练权重。"
         )
-    if any(word in lowered for word in ("hello", "hi", "hey")) or contains_any(text, ("你好", "在吗", "在不在")):
-        return cn("我在。现在聊天已经可以绑定到本地训练 artifact，而不是只停留在 bootstrap 回复。")
-    return cn(
-        f"我收到你的问题了。当前回答来自本地训练 artifact，训练样本 {rows} 条，train_loss={loss}。"
-        "这个阶段适合验证训练、绑定、运行链路；要获得强代码能力，需要继续接入更大的 LoRA/QLoRA 模型后端。"
-    )
+    if is_greeting(text, lowered):
+        return cn("我在。当前 runtime 有 lightweight-ngram 绑定，但还没有已训练完成的自有大模型在回答。")
+    return cn(f"当前只有 lightweight-ngram 训练链路证明，rows={rows}，train_loss={loss}；还不是自训练生成模型。")
 
 
 def asks_training_status(text: str, lowered: str) -> bool:
     return any(phrase in lowered for phrase in ("trained", "self trained", "self-trained", "training")) or contains_any(
         text,
-        ("训练", "自训", "自己训", "自己训练", "你训练了", "是自己训练的吗", "是不是自己训练"),
+        (
+            "训练",
+            "自训",
+            "自己训",
+            "自己训练",
+            "你训练了",
+            "是自己训练的吗",
+            "是不是自己训练",
+        ),
     )
 
 
@@ -175,6 +173,10 @@ def asks_persona(text: str, lowered: str) -> bool:
         text,
         ("女的吗", "男的吗", "性别", "女生", "女孩", "男生"),
     )
+
+
+def is_greeting(text: str, lowered: str) -> bool:
+    return any(word in lowered for word in ("hello", "hi", "hey")) or contains_any(text, ("你好", "在吗", "在不在"))
 
 
 def contains_any(text: str, needles: tuple[str, ...]) -> bool:

@@ -93,7 +93,7 @@ For local setup without Ollama, seed an in-process owned worker:
 python scripts/bootstrap_owned_runtime.py
 ```
 
-This registers `ailovanta-owned:candidate`, a trusted runtime node, `inprocess://ailovanta-worker`, and an active checkpoint binding. It is a local bootstrap path; later foundation imports should replace the checkpoint binding with a trained artifact.
+This registers `ailovanta-owned:candidate`, a trusted runtime node, `inprocess://ailovanta-worker`, and an active checkpoint binding. It is a local bootstrap path. It must not be described as a trained model. Later foundation imports should replace the checkpoint binding only with a real Transformers/LoRA model artifact that passes promotion gates.
 
 ## Rollback sync
 
@@ -108,7 +108,17 @@ So a rolled-back candidate is no longer selected by active binding lookup.
 
 ## Important reality
 
-A jsonl-stat checkpoint is not a full conversational model. When the binding points to a lightweight checkpoint, the worker returns a small owned-runtime bootstrap assistant response for the user-visible answer. Detailed artifact facts stay in `artifact_binding` and `validation_provenance` instead of being shown as the chat answer.
+A jsonl-stat checkpoint is not a full conversational model. A lightweight n-gram artifact is also not a trained code model. These artifacts prove that the training, binding, provenance, and storage loop ran; they do not prove that Ailovanta has trained a usable conversational/code foundation model.
+
+User-visible answers must keep this boundary strict:
+
+```text
+checkpoint/bootstrap binding -> not trained model
+lightweight-ngram artifact   -> training pipeline proof, not trained model
+transformers/LoRA artifact   -> can be called trained only after promotion gates pass
+```
+
+When the binding points to a checkpoint or lightweight artifact, the worker should report the boundary directly instead of pretending to generate with a model. Detailed artifact facts stay in `artifact_binding` and `validation_provenance`.
 
 A real generative path requires a binding whose `backend_kind` is `transformers-local` or `transformers-causal-lm` and whose `backend_ref` points to a valid local model directory.
 

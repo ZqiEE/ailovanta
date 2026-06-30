@@ -55,7 +55,7 @@ def test_worker_uses_artifact_bound_checkpoint(monkeypatch, tmp_path: Path) -> N
     body = response.json()
     assert body["source"] == "artifact-bound-checkpoint"
     assert body["artifact_binding"]["runtime_manifest_hash"] == "sha256:manifest"
-    assert "owned runtime" in body["answer"]
+    assert "不是已训练完成" in body["answer"]
     assert "Token count" not in body["answer"]
     assert body["validation_provenance"]["artifact_hash"] == "sha256:artifact"
 
