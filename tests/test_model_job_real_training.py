@@ -2,8 +2,13 @@ import json
 import urllib.error
 from pathlib import Path
 
+import pytest
+
+from api.artifact_hash import sha256_path
+from api.artifact_integrity import verify_artifact_uri
 from api.model_job import resolve_dataset_path, run_model_job
 from api.node_client import make_output, submit_failure_actions, try_post
+from api.secure_artifact_pack import generate_artifact_key
 from api.training_artifact_binding import bind_local_training_artifact
 
 
@@ -237,6 +242,103 @@ def test_bind_local_training_artifact_requires_code_eval(tmp_path: Path) -> None
     assert gate["ok"] is False
     assert "code_eval:no_code_records" in gate["blockers"]
     assert binding["metadata"]["failure_actions"]["actions"][0]["action_type"] == "training_retrain"
+
+
+def test_directory_artifact_integrity_uses_deterministic_tree_hash(tmp_path: Path) -> None:
+    model_dir = tmp_path / "model-dir"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text('{"model_type":"gpt2"}', encoding="utf-8")
+    nested = model_dir / "tokenizer"
+    nested.mkdir()
+    (nested / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+
+    expected = sha256_path(model_dir)
+    result = verify_artifact_uri(model_dir.resolve().as_uri(), expected)
+
+    assert result["ok"] is True
+    assert result["kind"] == "directory"
+    assert result["actual_hash"] == expected
+
+
+def test_bind_local_training_artifact_registers_transformers_directory_candidate(tmp_path: Path, monkeypatch) -> None:
+    pytest.importorskip("cryptography")
+    dataset = write_dataset(tmp_path / "train.jsonl")
+    output_dir = tmp_path / "transformers-model"
+    output_dir.mkdir()
+    (output_dir / "config.json").write_text('{"model_type":"gpt2"}', encoding="utf-8")
+    (output_dir / "tokenizer_config.json").write_text("{}", encoding="utf-8")
+    record = {
+        "schema": "ailovanta.model_output.v1",
+        "name": "real-transformers",
+        "version": "v1",
+        "source_job_id": "job-transformers-dir",
+        "base_model": "local-base",
+        "dataset_uri": "file://" + str(dataset),
+        "data_path": "file://" + str(dataset),
+        "kind": "full_model",
+        "location": str(output_dir),
+        "metrics": {"backend": "transformers", "score": 0.8},
+        "backend_message": "local transformers run finished",
+    }
+    (output_dir / "output.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    monkeypatch.setenv("AILOVANTA_ARTIFACT_ENCRYPTION_KEY", generate_artifact_key())
+
+    from api.artifact_binding import ArtifactBindingStore
+
+    binding = bind_local_training_artifact(
+        {
+            "name": "real-transformers",
+            "version": "v1",
+            "source_job_id": "job-transformers-dir",
+            "location": str(output_dir),
+            "kind": "full_model",
+            "metrics": {"backend": "transformers", "score": 0.8},
+            "status": "candidate",
+            "notes": "local transformers run finished",
+        },
+        ArtifactBindingStore(tmp_path / "bindings.sqlite3"),
+        manifest_dir=tmp_path / "artifact_manifests",
+        replica_book_path=tmp_path / "replica_book.json",
+        replica_tasks_path=tmp_path / "replica_repair_tasks.json",
+        replica_storage_root=tmp_path / "storage_replicas",
+        failure_actions_path=tmp_path / "candidate_failure_actions.json",
+    )
+
+    assert binding is not None
+    assert binding["backend_kind"] == "transformers-local"
+    assert binding["backend_ref"] == output_dir.resolve().as_uri()
+    assert binding["artifact_hash"] == sha256_path(output_dir)
+    assert binding["status"] == "candidate"
+    distribution = binding["metadata"]["artifact_distribution"]
+    assert distribution["sealed"] is True
+    assert distribution["storage_artifact_hash"].startswith("sha256:")
+    gate = binding["metadata"]["promotion_gate"]
+    assert gate["model_eval"]["backend"] == "transformers"
+    assert gate["code_eval"]["ok"] is True
+    assert gate["artifact_integrity"]["ok"] is True
+    assert gate["ok"] is False
+    assert any(item.startswith("code_generation:") for item in gate["blockers"])
+
+
+def test_bind_local_training_artifact_ignores_failed_real_output(tmp_path: Path) -> None:
+    output_dir = tmp_path / "failed-model"
+    output_dir.mkdir()
+    (output_dir / "output.json").write_text(
+        json.dumps({"schema": "ailovanta.model_output.v1", "kind": "training_failed", "metrics": {"backend": "real_training_preflight_failed"}}),
+        encoding="utf-8",
+    )
+
+    assert (
+        bind_local_training_artifact(
+            {
+                "source_job_id": "job-failed-real",
+                "location": str(output_dir),
+                "metrics": {"backend": "real_training_preflight_failed"},
+                "status": "failed",
+            }
+        )
+        is None
+    )
 
 
 def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:

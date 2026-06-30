@@ -15,6 +15,17 @@ def test_candidate_code_generation_eval_requires_ready_transformers_backend() ->
     assert "backend_ref_unsupported" in result["blockers"]
 
 
+def test_candidate_code_generation_eval_reports_model_load_failure(tmp_path) -> None:
+    model_dir = tmp_path / "bad-model"
+    model_dir.mkdir()
+    (model_dir / "config.json").write_text("{}", encoding="utf-8")
+
+    result = evaluate_candidate_code_generation({"backend_kind": "transformers-local", "backend_ref": model_dir.resolve().as_uri()})
+
+    assert result["ok"] is False
+    assert set(result["blockers"]) & {"transformers_model_load_failed", "transformers_runtime_unavailable"}
+
+
 def test_candidate_code_generation_eval_runs_generated_code() -> None:
     def generator(case, _binding):
         if case["case_id"] == "python_add":

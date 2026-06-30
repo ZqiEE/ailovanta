@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from api.artifact_hash import sha256_path
 from api.artifact_fetch import fetch_artifact, sha256_file
 from api.content_gateway import fetch_content_uri
 from api.object_store import get_object
@@ -29,7 +30,7 @@ def fetch_for_verify(uri: str, cache_root: str = "runtime_data/artifact_verify")
             return {"ok": False, "reason": "bad_file_uri", "uri": uri}
         if not path.exists():
             return {"ok": False, "reason": "file_artifact_not_found", "uri": uri}
-        return {"ok": True, "uri": uri, "path": str(path), "kind": "file"}
+        return {"ok": True, "uri": uri, "path": str(path), "kind": "directory" if path.is_dir() else "file"}
     if uri.startswith("s3://"):
         bucket_key = uri.removeprefix("s3://")
         if "/" not in bucket_key:
@@ -57,7 +58,7 @@ def verify_artifact_uri(uri: str, expected_hash: str, cache_root: str = "runtime
     if not fetched.get("ok"):
         return fetched
     path = Path(fetched["path"])
-    actual = "sha256:" + sha256_file(path)
+    actual = sha256_path(path) if path.is_dir() else "sha256:" + sha256_file(path)
     ok = actual == expected
     return {"ok": ok, "uri": uri, "path": str(path), "expected_hash": expected, "actual_hash": actual, "reason": "ok" if ok else "artifact_hash_mismatch", "kind": fetched.get("kind")}
 

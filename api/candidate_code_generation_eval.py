@@ -197,11 +197,18 @@ def _make_transformers_generator(binding: dict[str, Any]) -> dict[str, Any]:
             "reason": "torch and transformers are required for executable code generation evaluation",
         }
 
-    tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-    model = AutoModelForCausalLM.from_pretrained(str(model_path))
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model.to(device)
-    model.eval()
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(str(model_path))
+        model = AutoModelForCausalLM.from_pretrained(str(model_path))
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model.to(device)
+        model.eval()
+    except Exception as exc:
+        return {
+            "ok": False,
+            "blocker": "transformers_model_load_failed",
+            "reason": "transformers model could not be loaded from backend_ref: " + type(exc).__name__,
+        }
 
     def generate(case: dict[str, Any], _binding: dict[str, Any]) -> str:
         prompt = _benchmark_prompt(str(case.get("prompt") or ""))

@@ -94,7 +94,7 @@ def _retrain_action(binding: dict[str, Any], gate: dict[str, Any], *, max_steps:
     metadata = binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}
     model_eval = gate.get("model_eval") if isinstance(gate.get("model_eval"), dict) else {}
     dataset_path = str(model_eval.get("dataset_path") or "")
-    dataset_uri = Path(dataset_path).resolve().as_uri() if dataset_path else ""
+    dataset_uri = _dataset_uri(dataset_path)
     blockers = [str(item) for item in gate.get("blockers", [])]
     action_id = stable_id("candidate_action_", json.dumps({"binding_id": binding.get("binding_id"), "blockers": blockers, "dataset_uri": dataset_uri}, sort_keys=True))
     request = {
@@ -121,3 +121,11 @@ def _retrain_action(binding: dict[str, Any], gate: dict[str, Any], *, max_steps:
 
 def stable_id(prefix: str, value: str) -> str:
     return prefix + hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
+def _dataset_uri(value: str) -> str:
+    if not value:
+        return ""
+    if "://" in value:
+        return value
+    return Path(value).resolve().as_uri()

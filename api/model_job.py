@@ -50,6 +50,8 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "version": version,
         "source_job_id": source_id,
         "base_model": base_model,
+        "dataset_uri": data_path,
+        "data_path": data_path,
         "kind": result.get("kind") or payload.get("kind") or "adapter",
         "location": str(out_dir),
         "metrics": metrics,
