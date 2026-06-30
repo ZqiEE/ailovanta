@@ -232,6 +232,24 @@ Run automatic source discovery and queue a real local training job:
 .\start_auto_training_windows.bat
 ```
 
+One-command full-auto mode starts the API, autonomous source discovery/training queue, and local training worker together:
+
+```powershell
+.\start_full_auto_windows.bat
+```
+
+Check full-auto state:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\show_full_auto_status.py
+```
+
+Stop full-auto background processes:
+
+```powershell
+.\stop_full_auto_windows.bat
+```
+
 Run it continuously:
 
 ```powershell

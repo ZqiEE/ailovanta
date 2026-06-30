@@ -19,7 +19,34 @@ GPU worker process
 
 ## Windows
 
-Start the API first:
+Recommended one-command full-auto mode:
+
+```powershell
+.\start_full_auto_windows.bat
+```
+
+This starts:
+
+```text
+API/app server
+autonomous GitHub/source discovery and training queue
+local GPU/CPU worker
+owned runtime bootstrap and artifact binding
+```
+
+Check state:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\show_full_auto_status.py
+```
+
+Stop all full-auto child processes:
+
+```powershell
+.\stop_full_auto_windows.bat
+```
+
+Manual mode is still available for debugging. Start the API first:
 
 ```powershell
 .\start_ailovanta_windows.bat

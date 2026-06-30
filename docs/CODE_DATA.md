@@ -152,6 +152,12 @@ Even in broad authorized mode, secrets, tokens, private keys, build outputs, ven
 For the local automatic path, use:
 
 ```powershell
+.\start_full_auto_windows.bat
+```
+
+For manual debugging, run the pieces separately:
+
+```powershell
 .\start_auto_training_windows.bat -Server http://127.0.0.1:8001
 .\start_training_worker_windows.bat -Server http://127.0.0.1:8001
 ```
