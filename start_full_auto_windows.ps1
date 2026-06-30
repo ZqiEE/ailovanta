@@ -5,6 +5,7 @@ param(
   [int]$MaxSteps = 16,
   [int]$AutoInterval = 1800,
   [int]$WorkerInterval = 10,
+  [int]$ReplicaInterval = 60,
   [switch]$SkipInstall,
   [switch]$SkipValidate,
   [switch]$NoBrowser
@@ -126,6 +127,14 @@ $WorkerArgs = @(
 )
 $WorkerProcess = Start-Process -FilePath $Python -ArgumentList $WorkerArgs -WorkingDirectory $Root -PassThru -WindowStyle Hidden
 
+Write-Step "Starting replica maintenance loop"
+$ReplicaArgs = @(
+  "scripts\run_replica_maintenance.py",
+  "--loop",
+  "--interval", "$ReplicaInterval"
+)
+$ReplicaProcess = Start-Process -FilePath $Python -ArgumentList $ReplicaArgs -WorkingDirectory $Root -PassThru -WindowStyle Hidden
+
 $State = @{
   ok = $true
   server = $Server
@@ -135,9 +144,11 @@ $State = @{
   api_pid = $ApiProcess.Id
   auto_training_pid = $AutoProcess.Id
   worker_pid = $WorkerProcess.Id
+  replica_maintenance_pid = $ReplicaProcess.Id
   max_sources = $MaxSources
   max_records = $MaxRecords
   max_steps = $MaxSteps
+  replica_interval = $ReplicaInterval
   started_at = (Get-Date).ToString("s")
 }
 $StatePath = Join-Path $Root "runtime_data\full_auto_state.json"
@@ -158,6 +169,7 @@ Write-Host "Processes:"
 Write-Host "API:       $($ApiProcess.Id)"
 Write-Host "AutoTrain: $($AutoProcess.Id)"
 Write-Host "Worker:    $($WorkerProcess.Id)"
+Write-Host "Replicas:  $($ReplicaProcess.Id)"
 Write-Host ""
 Write-Host "Press Ctrl+C to stop all full-auto processes."
 
@@ -165,7 +177,7 @@ try {
   $StopRequested = $false
   while ($true) {
     Start-Sleep -Seconds 5
-    foreach ($Process in @($ApiProcess, $AutoProcess, $WorkerProcess)) {
+    foreach ($Process in @($ApiProcess, $AutoProcess, $WorkerProcess, $ReplicaProcess)) {
       if ($Process.HasExited) {
         Write-Host "A full-auto child process exited: PID=$($Process.Id)"
         $StopRequested = $true
@@ -178,7 +190,7 @@ try {
   }
 } finally {
   Write-Step "Stopping full-auto processes"
-  foreach ($Process in @($WorkerProcess, $AutoProcess, $ApiProcess)) {
+  foreach ($Process in @($ReplicaProcess, $WorkerProcess, $AutoProcess, $ApiProcess)) {
     try {
       if ($Process -and !$Process.HasExited) {
         Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue

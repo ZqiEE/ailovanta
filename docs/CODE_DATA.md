@@ -175,9 +175,13 @@ GitHub source discovery
 -> artifact binding into owned runtime
 -> chunk manifest generation
 -> replica_book registration
+-> replica repair task planning
+-> local chunk replica creation when source bytes are reachable
 ```
 
 Use `-Loop` on `start_auto_training_windows.bat` to keep discovering and queuing new jobs periodically.
+
+Use `start_full_auto_windows.bat` for the whole autonomous path. It keeps discovery, training workers, artifact binding, and replica maintenance running together. No manual source list is required for the automatic GitHub discovery path, but every discovered source still gets source metadata and safety filtering before records enter training.
 
 Training is code-first by default. The autonomous path builds instruction/code corpora from repository docs, tests, examples, API usage, and source files before creating `lora_micro` jobs. This matches the product direction: first improve code intelligence with measurable artifacts, then promote stronger model backends.
 

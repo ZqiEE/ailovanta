@@ -97,6 +97,7 @@ CLI:
 python scripts/replica_repair.py plan --target-node storage-2
 python scripts/replica_repair.py list --status queued
 python scripts/replica_repair.py complete <task_id>
+python scripts/run_replica_maintenance.py --loop
 ```
 
 API:
@@ -108,7 +109,7 @@ POST /replicas/repair/tasks/{task_id}/assign
 POST /replicas/repair/tasks/{task_id}/complete
 ```
 
-Current local repair completion records that a copy exists at a node URI. Production workers must perform the actual artifact transfer before submitting completion.
+Current local maintenance performs a real local chunk copy when the source artifact is available as `file://...`: it slices the source artifact chunk, verifies the chunk sha256, writes it under `runtime_data/storage_replicas/`, and then completes the repair task. Production storage workers must perform the equivalent real transfer to their own storage before submitting completion.
 
 ## Server role
 

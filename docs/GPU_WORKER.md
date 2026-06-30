@@ -33,6 +33,7 @@ autonomous GitHub/source discovery and training queue
 local GPU/CPU worker
 owned runtime bootstrap and artifact binding
 training artifact chunk manifest and replica book registration
+replica maintenance loop for under-replicated artifact chunks
 ```
 
 Check state:
@@ -99,9 +100,13 @@ After a local training artifact is produced, the worker binds it to `ailovanta-o
 ```text
 runtime_data/artifact_manifests/<artifact_id>.manifest.json
 runtime_data/replica_book.json
+runtime_data/replica_repair_tasks.json
+runtime_data/storage_replicas/
 ```
 
 This is the local version of the distributed model storage plan: large model files are represented by chunk hashes, replica policy, replica locations, and runtime binding metadata. Runtime should load through the binding and manifest hash, not by handing out raw model files as public assets.
+
+`start_full_auto_windows.bat` also starts `scripts/run_replica_maintenance.py --loop`. The maintenance loop scans for under-replicated chunks, creates `storage_replica_repair` tasks, copies locally reachable artifact chunks into `runtime_data/storage_replicas/`, verifies each chunk hash, and marks the task complete in `replica_book.json`.
 
 If you already trained before this binding step existed, bind the newest local artifact manually:
 
@@ -139,6 +144,7 @@ artifact binding/provenance: implemented
 local GPU worker registration: implemented
 real local lightweight training artifact: implemented
 local chunk manifest + replica book for trained artifacts: implemented
+automatic local replica repair/maintenance: implemented
 CUDA/QLoRA training backend: supported when optional dependencies and CUDA torch are installed
 continuous distributed training: next stage, requires many external workers and promotion automation
 ```

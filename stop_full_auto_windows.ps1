@@ -9,7 +9,7 @@ if (!(Test-Path $StatePath)) {
 }
 
 $State = Get-Content $StatePath -Raw | ConvertFrom-Json
-$Pids = @($State.worker_pid, $State.auto_training_pid, $State.api_pid) | Where-Object { $_ }
+$Pids = @($State.replica_maintenance_pid, $State.worker_pid, $State.auto_training_pid, $State.api_pid) | Where-Object { $_ }
 
 foreach ($PidValue in $Pids) {
   try {
