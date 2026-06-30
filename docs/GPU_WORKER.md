@@ -84,7 +84,14 @@ Run it as a continuous loop:
 .\start_auto_training_windows.bat -Server http://127.0.0.1:8001 -Loop
 ```
 
-The automatic job discovers GitHub sources, writes/updates `runtime_data/github_code_sources.json`, fetches a bounded source set, builds `runtime_data/autonomous_source_training/autonomous_training_dataset.jsonl`, and queues a `lora_micro` job. The worker then trains a real local artifact:
+The automatic job discovers GitHub sources through a persistent frontier, writes/updates `runtime_data/github_code_sources.json`, fetches a bounded source set, builds `runtime_data/autonomous_source_training/autonomous_training_dataset.jsonl`, and queues a `lora_micro` job. The worker then trains a real local artifact:
+
+```text
+runtime_data/github_source_frontier.json
+runtime_data/github_code_sources.json
+```
+
+`github_source_frontier.json` is the autonomous crawler state. It chooses due GitHub queries, expands new queries from languages/topics found in results, and scores sources. `github_code_sources.json` is the resulting source manifest/audit ledger, not a hand-written source list.
 
 ```text
 runtime_data/models/<job-name>-<version>/ngram_model.json

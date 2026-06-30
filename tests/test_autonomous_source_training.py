@@ -91,3 +91,25 @@ def test_autonomous_source_training_cycle_queues_job(monkeypatch, tmp_path: Path
     assert posted["path"] == "/training/jobs"
     assert posted["body"]["kind"] == "lora_micro"
     assert posted["body"]["dataset_uri"].startswith("file://")
+
+
+def test_limit_sources_prefers_high_discovery_score(tmp_path: Path) -> None:
+    from api.autonomous_source_training import limit_sources
+
+    source_path = tmp_path / "sources.json"
+    source_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "ailovanta.github_code_sources.v1",
+                "sources": [
+                    {"name": "low", "path": str(tmp_path), "enabled": True, "discovery_score": 1},
+                    {"name": "high", "path": str(tmp_path), "enabled": True, "discovery_score": 100},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    limited = limit_sources(source_path, tmp_path / "limited.json", max_sources=1)
+    payload = json.loads(limited.read_text(encoding="utf-8"))
+    assert payload["sources"][0]["name"] == "high"

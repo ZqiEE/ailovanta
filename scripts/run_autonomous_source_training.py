@@ -17,10 +17,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Automatically discover sources, ingest code, and queue training jobs")
     parser.add_argument("--server", default="http://127.0.0.1:8000")
     parser.add_argument("--sources", default="runtime_data/github_code_sources.json")
+    parser.add_argument("--frontier", default="runtime_data/github_source_frontier.json")
     parser.add_argument("--work-root", default="runtime_data/autonomous_source_training")
     parser.add_argument("--no-discover", action="store_true")
     parser.add_argument("--no-fetch", action="store_true")
     parser.add_argument("--max-sources", type=int, default=3)
+    parser.add_argument("--max-discovery-queries", type=int, default=5)
     parser.add_argument("--max-records", type=int, default=512)
     parser.add_argument("--max-steps", type=int, default=16)
     parser.add_argument("--corpus-mode", choices=["instructions", "code", "mixed"], default="mixed")
@@ -39,6 +41,8 @@ def main() -> int:
             max_records=args.max_records,
             corpus_mode=args.corpus_mode,
             max_steps=args.max_steps,
+            frontier_path=args.frontier,
+            max_discovery_queries=args.max_discovery_queries,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if not args.loop:

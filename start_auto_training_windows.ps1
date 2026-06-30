@@ -1,6 +1,7 @@
 param(
   [string]$Server = "http://127.0.0.1:8000",
   [int]$MaxSources = 3,
+  [int]$MaxDiscoveryQueries = 5,
   [int]$MaxRecords = 512,
   [int]$MaxSteps = 16,
   [switch]$Loop,
@@ -28,6 +29,7 @@ $ArgsList = @(
   "scripts\run_autonomous_source_training.py",
   "--server", $Server,
   "--max-sources", "$MaxSources",
+  "--max-discovery-queries", "$MaxDiscoveryQueries",
   "--max-records", "$MaxRecords",
   "--max-steps", "$MaxSteps"
 )

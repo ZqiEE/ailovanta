@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 from api.artifact_binding import ArtifactBindingStore
 from api.gpu_probe import detect_gpu
+from api.github_source_frontier import load_frontier
 from api.replica_book import status as replica_status
 from api.replica_repair import ReplicaRepairStore
 from api.storage import SchedulerStore
@@ -23,6 +24,12 @@ def main() -> int:
     repair_store = ReplicaRepairStore(path=ROOT / "runtime_data" / "replica_repair_tasks.json", replica_book_path=ROOT / "runtime_data" / "replica_book.json")
     latest_binding = bindings.latest_for_model("ailovanta-owned:candidate", active_only=True)
     repair_tasks = repair_store.list_tasks(limit=20)
+    source_frontier = load_frontier(ROOT / "runtime_data" / "github_source_frontier.json")
+    source_queries = sorted(
+        source_frontier.get("queries", {}).values(),
+        key=lambda item: (float(item.get("priority") or 0), float(item.get("last_run_at") or 0)),
+        reverse=True,
+    )[:10]
     payload = {
         "ok": True,
         "state": state,
@@ -35,6 +42,11 @@ def main() -> int:
             "assigned": len([task for task in repair_tasks if task.get("status") == "assigned"]),
             "done": len([task for task in repair_tasks if task.get("status") == "done"]),
             "tasks": repair_tasks,
+        },
+        "source_frontier": {
+            "schema_version": source_frontier.get("schema_version"),
+            "query_count": len(source_frontier.get("queries", {})),
+            "top_queries": source_queries,
         },
         "jobs": scheduler.list_jobs(limit=10),
         "nodes": scheduler.list_nodes(limit=10),

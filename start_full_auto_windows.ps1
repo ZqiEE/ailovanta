@@ -1,6 +1,7 @@
 param(
   [int]$Port = 8000,
   [int]$MaxSources = 3,
+  [int]$MaxDiscoveryQueries = 5,
   [int]$MaxRecords = 512,
   [int]$MaxSteps = 16,
   [int]$AutoInterval = 1800,
@@ -110,6 +111,7 @@ $AutoArgs = @(
   "scripts\run_autonomous_source_training.py",
   "--server", $Server,
   "--max-sources", "$MaxSources",
+  "--max-discovery-queries", "$MaxDiscoveryQueries",
   "--max-records", "$MaxRecords",
   "--max-steps", "$MaxSteps",
   "--loop",
@@ -146,6 +148,7 @@ $State = @{
   worker_pid = $WorkerProcess.Id
   replica_maintenance_pid = $ReplicaProcess.Id
   max_sources = $MaxSources
+  max_discovery_queries = $MaxDiscoveryQueries
   max_records = $MaxRecords
   max_steps = $MaxSteps
   replica_interval = $ReplicaInterval

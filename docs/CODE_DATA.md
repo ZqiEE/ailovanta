@@ -165,8 +165,10 @@ For manual debugging, run the pieces separately:
 The automatic path performs:
 
 ```text
-GitHub source discovery
+GitHub source frontier discovery
+-> query scoring and expansion
 -> source manifest update
+-> source scoring and deduplication
 -> bounded fetch
 -> instruction/code corpus generation
 -> training JSONL generation
@@ -182,6 +184,19 @@ GitHub source discovery
 Use `-Loop` on `start_auto_training_windows.bat` to keep discovering and queuing new jobs periodically.
 
 Use `start_full_auto_windows.bat` for the whole autonomous path. It keeps discovery, training workers, artifact binding, and replica maintenance running together. No manual source list is required for the automatic GitHub discovery path, but every discovered source still gets source metadata and safety filtering before records enter training.
+
+The source manifest is not meant to be manually completed by the operator. It is the audit ledger produced by the frontier:
+
+```text
+runtime_data/github_source_frontier.json
+-> selected search queries
+-> GitHub repository results
+-> discovery_score / metadata
+-> runtime_data/github_code_sources.json
+-> training ingest
+```
+
+The frontier starts from language and code-topic seeds, then adds new language/topic queries from discovered repositories. Each full-auto cycle runs a bounded number of due queries, updates priorities, deduplicates repositories by URL, and sorts enabled sources by `discovery_score` before training picks a bounded batch.
 
 Training is code-first by default. The autonomous path builds instruction/code corpora from repository docs, tests, examples, API usage, and source files before creating `lora_micro` jobs. This matches the product direction: first improve code intelligence with measurable artifacts, then promote stronger model backends.
 

@@ -30,12 +30,14 @@ def run_autonomous_source_training_cycle(
     max_records: int = 512,
     corpus_mode: str = "mixed",
     max_steps: int = 16,
+    frontier_path: str | Path = "runtime_data/github_source_frontier.json",
+    max_discovery_queries: int = 5,
 ) -> dict[str, Any]:
     root = Path(work_root)
     root.mkdir(parents=True, exist_ok=True)
     sources = Path(sources_path)
 
-    discovery = discover_sources_if_needed(sources, enabled=discover)
+    discovery = discover_sources_if_needed(sources, enabled=discover, frontier_path=frontier_path, max_queries=max_discovery_queries)
     limited_sources = limit_sources(sources, root / "sources_limited.json", max_sources)
     corpus_path = root / "code_corpus.jsonl"
     ingest = ingest_sources(
@@ -83,38 +85,40 @@ def run_autonomous_source_training_cycle(
     }
 
 
-def discover_sources_if_needed(output_path: Path, enabled: bool) -> dict[str, Any]:
+def discover_sources_if_needed(output_path: Path, enabled: bool, frontier_path: str | Path = "runtime_data/github_source_frontier.json", max_queries: int = 5) -> dict[str, Any]:
     if output_path.exists() and not enabled:
         return {"ok": True, "enabled": False, "reason": "existing_sources", "output": str(output_path)}
     if not enabled and not output_path.exists():
         raise FileNotFoundError("sources file not found and discovery disabled: " + str(output_path))
 
-    from scripts.discover_github_sources import DEFAULT_QUERIES, load_manifest, save_manifest, search_repositories, source_from_repo, upsert_sources
+    from api.github_source_frontier import run_frontier_discovery
+    from scripts.discover_github_sources import load_manifest, save_manifest, search_repositories, source_from_repo, upsert_sources
 
     import os
 
     token = os.getenv("GITHUB_TOKEN")
-    manifest = load_manifest(output_path)
-    discovered = []
-    for query in DEFAULT_QUERIES[:3]:
-        repos = search_repositories(query, pages=1, per_page=10, token=token)
-        discovered.extend(source_from_repo(repo, "authorized_unrestricted", "operator authorized autonomous GitHub source discovery") for repo in repos)
-    added = upsert_sources(manifest, discovered)
-    save_manifest(output_path, manifest)
-    return {
-        "ok": True,
-        "enabled": True,
-        "queries": DEFAULT_QUERIES[:3],
-        "discovered": len(discovered),
-        "added": added,
-        "total_sources": len(manifest.get("sources", [])),
-        "output": str(output_path),
-    }
+    result = run_frontier_discovery(
+        sources_path=output_path,
+        frontier_path=frontier_path,
+        search_repositories=search_repositories,
+        source_from_repo=source_from_repo,
+        upsert_sources=upsert_sources,
+        load_manifest=load_manifest,
+        save_manifest=save_manifest,
+        token=token,
+        max_queries=max_queries,
+        pages=1,
+        per_page=10,
+        policy="authorized_unrestricted",
+        authorization_basis="operator authorized autonomous GitHub source discovery",
+    )
+    return {**result, "enabled": True, "output": str(output_path)}
 
 
 def limit_sources(source_path: Path, output_path: Path, max_sources: int) -> Path:
     payload = json.loads(source_path.read_text(encoding="utf-8-sig"))
     sources = [item for item in payload.get("sources", []) if item.get("enabled", True)]
+    sources.sort(key=lambda item: float(item.get("discovery_score") or 0), reverse=True)
     limited = {**payload, "sources": sources[:max_sources]}
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(limited, ensure_ascii=False, indent=2), encoding="utf-8")

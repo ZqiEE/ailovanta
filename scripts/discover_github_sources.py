@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from api.github_code_ingest import safe_name
+from api.github_source_frontier import run_frontier_discovery
 
 DEFAULT_QUERIES = [
     "stars:>=500 language:Python archived:false",
@@ -96,11 +97,32 @@ def main() -> int:
     parser.add_argument("--query", action="append", default=[])
     parser.add_argument("--pages", type=int, default=1)
     parser.add_argument("--per-page", type=int, default=50)
+    parser.add_argument("--frontier", default="runtime_data/github_source_frontier.json")
+    parser.add_argument("--frontier-mode", action="store_true")
+    parser.add_argument("--max-queries", type=int, default=5)
     parser.add_argument("--policy", default="authorized_unrestricted")
     parser.add_argument("--authorization-basis", default="operator asserts authorization for broad GitHub code learning")
     parser.add_argument("--token-env", default="GITHUB_TOKEN")
     args = parser.parse_args()
     token = os.getenv(args.token_env)
+    if args.frontier_mode or not args.query:
+        out = run_frontier_discovery(
+            sources_path=args.output,
+            frontier_path=args.frontier,
+            search_repositories=search_repositories,
+            source_from_repo=source_from_repo,
+            upsert_sources=upsert_sources,
+            load_manifest=load_manifest,
+            save_manifest=save_manifest,
+            token=token,
+            max_queries=args.max_queries,
+            pages=args.pages,
+            per_page=args.per_page,
+            policy=args.policy,
+            authorization_basis=args.authorization_basis,
+        )
+        print(json.dumps(out, ensure_ascii=False, indent=2))
+        return 0
     queries = args.query or DEFAULT_QUERIES
     manifest = load_manifest(Path(args.output))
     discovered: list[dict] = []
