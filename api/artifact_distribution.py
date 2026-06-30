@@ -7,6 +7,7 @@ from typing import Any
 from api.chunk_manifest import build_manifest
 from api.replica_book import add_manifest, status as replica_status
 from api.runtime_ref import to_local_path
+from api.secure_artifact_pack import SecureArtifactError, package_secure_model_directory
 
 
 def prepare_local_artifact_distribution(
@@ -17,7 +18,37 @@ def prepare_local_artifact_distribution(
     storage_node_id: str = "local-storage",
 ) -> dict[str, Any] | None:
     path = to_local_path(backend_ref or artifact.get("checkpoint_uri", ""))
-    if not path or not path.exists() or not path.is_file():
+    if not path or not path.exists():
+        return None
+    if path.is_dir():
+        try:
+            packaged = package_secure_model_directory(
+                path,
+                manifest_dir=manifest_dir,
+                replica_book_path=replica_book_path,
+                storage_node_id=storage_node_id,
+                key_id=str(artifact.get("artifact_key_id") or "artifact-binding-key"),
+            )
+        except SecureArtifactError:
+            return None
+        manifest = packaged["manifest"]
+        return {
+            "schema_version": "ailovanta.artifact_distribution.v1",
+            "artifact_id": artifact["artifact_id"],
+            "model_artifact_hash": artifact["artifact_hash"],
+            "storage_artifact_hash": manifest["artifact_hash"],
+            "plaintext_artifact_hash": manifest.get("plaintext_artifact_hash"),
+            "manifest_hash": manifest["manifest_hash"],
+            "manifest_uri": packaged["manifest_uri"],
+            "manifest": manifest,
+            "replica_book_path": str(Path(replica_book_path)),
+            "replica_status": replica_status(replica_book_path),
+            "hash_matches_model_artifact": manifest["artifact_hash"] == artifact["artifact_hash"],
+            "sealed": True,
+            "anti_theft": manifest.get("anti_theft"),
+            "book": packaged["book"],
+        }
+    if not path.is_file():
         return None
     manifest = build_manifest(path, sources=[f"node://{storage_node_id}/{path.name}"])
     out_dir = Path(manifest_dir)
