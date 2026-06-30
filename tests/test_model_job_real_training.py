@@ -11,9 +11,22 @@ def write_dataset(path: Path) -> Path:
     path.write_text(
         "\n".join(
             [
-                json.dumps({"text": "Ailovanta trains verified code intelligence."}),
+                json.dumps({"text": "def add(left, right):\n    return left + right\n", "record_kind": "code", "source_path": "app.py"}),
+                json.dumps({"text": "def reverse_string(value):\n    return value[::-1]\n", "record_kind": "code", "source_path": "strings.py"}),
+                json.dumps({"text": "Instruction: implement tested Python functions.\nExpected: code should compile.", "record_kind": "instruction", "source_path": "README.md"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_plain_dataset(path: Path) -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                json.dumps({"text": "Ailovanta trains verified intelligence."}),
                 json.dumps({"text": "Workers produce artifacts from training data."}),
-                json.dumps({"text": "Validation promotes only auditable candidates."}),
             ]
         ),
         encoding="utf-8",
@@ -119,6 +132,8 @@ def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) 
     assert binding["metadata"]["storage_policy"]["mode"] == "distributed_chunk_manifest"
     assert binding["metadata"]["promotion_gate"]["ok"] is True
     assert binding["metadata"]["promotion_gate"]["decision"] == "promote_active"
+    assert binding["metadata"]["promotion_gate"]["code_eval"]["ok"] is True
+    assert binding["metadata"]["promotion_gate"]["code_eval"]["syntax_checks"] >= 1
 
 
 def test_bind_local_training_artifact_keeps_under_replicated_artifact_candidate(tmp_path: Path) -> None:
@@ -151,6 +166,40 @@ def test_bind_local_training_artifact_keeps_under_replicated_artifact_candidate(
     assert binding["metadata"]["promotion_gate"]["ok"] is False
     assert "artifact_distribution:replica_book_under_replicated" in binding["metadata"]["promotion_gate"]["blockers"]
     assert binding["metadata"]["failure_actions"]["actions"] == []
+
+
+def test_bind_local_training_artifact_requires_code_eval(tmp_path: Path) -> None:
+    dataset = write_plain_dataset(tmp_path / "plain.jsonl")
+    output_dir = tmp_path / "node-model"
+    result = run_model_job(
+        {
+            "name": "node-plain-local",
+            "dataset_uri": "file://" + str(dataset),
+            "base_model": "ailovanta-bootstrap",
+            "max_steps": 2,
+            "output_dir": str(output_dir),
+        },
+        {"device_name": "test-node", "cpu_threads": 4, "memory_gb": 16, "has_gpu": True},
+        "job-bind-plain",
+    )
+
+    from api.artifact_binding import ArtifactBindingStore
+
+    binding = bind_local_training_artifact(
+        result,
+        ArtifactBindingStore(tmp_path / "bindings.sqlite3"),
+        manifest_dir=tmp_path / "artifact_manifests",
+        replica_book_path=tmp_path / "replica_book.json",
+        replica_tasks_path=tmp_path / "replica_repair_tasks.json",
+        replica_storage_root=tmp_path / "storage_replicas",
+        failure_actions_path=tmp_path / "candidate_failure_actions.json",
+    )
+
+    gate = binding["metadata"]["promotion_gate"]
+    assert binding["status"] == "candidate"
+    assert gate["ok"] is False
+    assert "code_eval:no_code_records" in gate["blockers"]
+    assert binding["metadata"]["failure_actions"]["actions"][0]["action_type"] == "training_retrain"
 
 
 def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:

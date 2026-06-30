@@ -119,9 +119,9 @@ This is the local version of the distributed model storage plan: large model fil
 
 `start_full_auto_windows.bat` also starts `scripts/run_replica_maintenance.py --loop`. The maintenance loop scans for under-replicated chunks, creates `storage_replica_repair` tasks, copies locally reachable artifact chunks into `runtime_data/storage_replicas/`, verifies each chunk hash, and marks the task complete in `replica_book.json`.
 
-Worker artifacts are registered as `candidate` first. The local promotion gate checks that the artifact is loadable, the training artifact has usable rows/transitions/loss, artifact bytes match the binding hash, and the distributed replica book is healthy. Only a passing candidate is promoted to `active`; owned chat and runtime routes only use active bindings.
+Worker artifacts are registered as `candidate` first. The local promotion gate checks that the artifact is loadable, the training artifact has usable rows/transitions/loss, the dataset contains verifiable code records, code syntax checks pass, artifact bytes match the binding hash, and the distributed replica book is healthy. Only a passing candidate is promoted to `active`; owned chat and runtime routes only use active bindings.
 
-If the gate fails, the failure is not just logged. Storage/replica blockers remain repair work for the replica maintenance loop. Model-quality blockers such as invalid model output, too few rows/transitions, bad train loss, or artifact integrity failure create a `training_retrain` action in `runtime_data/candidate_failure_actions.json`. The worker submits queued retrain actions back to `/training/jobs` as `lora_micro` jobs using the same dataset lineage.
+If the gate fails, the failure is not just logged. Storage/replica blockers remain repair work for the replica maintenance loop. Model-quality/code-quality blockers such as invalid model output, too few rows/transitions, bad train loss, missing code records, syntax failures, or artifact integrity failure create a `training_retrain` action in `runtime_data/candidate_failure_actions.json`. The worker submits queued retrain actions back to `/training/jobs` as `lora_micro` jobs using the same dataset lineage.
 
 If you already trained before this binding step existed, bind the newest local artifact manually:
 
@@ -163,6 +163,7 @@ automatic local replica repair/maintenance: implemented
 continuous source training ledger: implemented
 training artifact promotion gate before active runtime: implemented
 candidate failure action queue and auto retrain submission: implemented
+code-record and syntax eval inside artifact promotion gate: implemented
 CUDA/QLoRA training backend: supported when optional dependencies and CUDA torch are installed
 continuous distributed training: next stage, requires many external workers and promotion automation
 ```

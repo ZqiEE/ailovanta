@@ -7,6 +7,7 @@ from typing import Any
 
 from api.artifact_integrity import verify_artifact_uri
 from api.route_health import RouteHealth
+from api.training_code_eval import evaluate_training_code_dataset
 
 
 def evaluate_training_artifact_binding(
@@ -17,9 +18,12 @@ def evaluate_training_artifact_binding(
     min_rows: int = 1,
     min_transitions: int = 1,
     max_train_loss: float = 20.0,
+    min_code_records: int = 1,
+    min_code_syntax_checks: int = 1,
 ) -> dict[str, Any]:
     blockers: list[str] = []
     model = _read_model(model_path)
+    code_eval = None
     if not model:
         blockers.append("missing_or_invalid_model")
     else:
@@ -34,6 +38,13 @@ def evaluate_training_artifact_binding(
             blockers.append("insufficient_training_transitions")
         if train_loss is None or not math.isfinite(train_loss) or train_loss > max_train_loss:
             blockers.append("train_loss_out_of_bounds")
+        dataset_path = str(model.get("dataset_path") or "")
+        if dataset_path:
+            code_eval = evaluate_training_code_dataset(dataset_path, min_code_records=min_code_records, min_syntax_checks=min_code_syntax_checks)
+            if not code_eval.get("ok"):
+                blockers.extend("code_eval:" + str(item) for item in code_eval.get("blockers", []))
+        else:
+            blockers.append("code_eval:missing_dataset_path")
 
     integrity = verify_artifact_uri(str(binding.get("backend_ref") or binding.get("checkpoint_uri") or ""), str(binding.get("artifact_hash") or ""))
     if not integrity.get("ok"):
@@ -49,12 +60,15 @@ def evaluate_training_artifact_binding(
         "decision": "promote_active" if not blockers else "keep_candidate",
         "blockers": sorted(set(blockers)),
         "model_eval": _compact_model(model),
+        "code_eval": code_eval,
         "artifact_integrity": integrity,
         "artifact_distribution": distribution,
         "policy": {
             "min_rows": min_rows,
             "min_transitions": min_transitions,
             "max_train_loss": max_train_loss,
+            "min_code_records": min_code_records,
+            "min_code_syntax_checks": min_code_syntax_checks,
         },
     }
 
