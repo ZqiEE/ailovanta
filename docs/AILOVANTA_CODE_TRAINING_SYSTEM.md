@@ -185,6 +185,12 @@ api/verified_code_foundation.py
 scripts/run_verified_code_foundation.py
   one-command bridge from verified code samples to local core checkpoint artifact
 
+api/autonomous_code_training_loop.py
+  autonomous code learning controller: discover/fetch/ingest/build tasks/run verification/export samples/train
+
+scripts/run_autonomous_code_training_loop.py
+  one-command autonomous Ailovanta-Code loop
+
 api/github_code_ingest.py
   corpus modes: instructions, code, mixed
 ```
@@ -292,3 +298,41 @@ verified_code_samples.json
 ```
 
 Use `--simulate` when the machine should only plan the job without local checkpoint execution. Use `--training-command` to replace the default local trainer with a stronger backend command.
+
+## Autonomous Code Training Loop
+
+Run the automatic code-learning loop:
+
+```bash
+python scripts/run_autonomous_code_training_loop.py \
+  --sources runtime_data/github_code_sources.json \
+  --core-path ../ailovanta-core \
+  --max-sources 5 \
+  --max-tasks 50
+```
+
+Run discovery first, then train:
+
+```bash
+python scripts/run_autonomous_code_training_loop.py \
+  --discover \
+  --max-sources 5 \
+  --core-path ../ailovanta-core
+```
+
+The loop is intentionally stage-gated:
+
+```text
+source manifest / GitHub discovery
+-> authorized fetch and rights proof
+-> instruction-first corpus
+-> executable test/spec tasks
+-> sandboxed pytest/compile verification
+-> verified_code_samples.json
+-> foundation job
+-> core checkpoint execution
+-> public foundation import/runtime binding
+-> run.json audit report
+```
+
+If no executable task passes, the loop stops at `no_verified_samples` and does not start training. This prevents the system from training on unverified or fake-positive code data.

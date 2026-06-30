@@ -79,6 +79,8 @@ def build_tasks_from_corpus(corpus_path: str | Path, output_path: str | Path, li
 def _default_commands(record: dict[str, Any]) -> list[list[str]]:
     path = str(record.get("path") or "")
     language = str(record.get("language") or "")
+    if record.get("record_type") == "test_spec" and (language == "python" or path.endswith(".py")):
+        return [["python", "-m", "pytest", path, "-q"]]
     if language == "python" or path.endswith(".py"):
         return [["python", "-m", "py_compile", path]]
     return []
