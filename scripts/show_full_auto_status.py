@@ -9,6 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from api.artifact_binding import ArtifactBindingStore
+from api.continuous_training_ledger import ledger_summary, load_ledger, sync_ledger_with_jobs
 from api.gpu_probe import detect_gpu
 from api.github_source_frontier import load_frontier
 from api.replica_book import status as replica_status
@@ -24,6 +25,10 @@ def main() -> int:
     repair_store = ReplicaRepairStore(path=ROOT / "runtime_data" / "replica_repair_tasks.json", replica_book_path=ROOT / "runtime_data" / "replica_book.json")
     latest_binding = bindings.latest_for_model("ailovanta-owned:candidate", active_only=True)
     repair_tasks = repair_store.list_tasks(limit=20)
+    jobs = scheduler.list_jobs(limit=200)
+    ledger_path = ROOT / "runtime_data" / "continuous_training_ledger.json"
+    sync_ledger_with_jobs(ledger_path, jobs)
+    training_ledger = load_ledger(ledger_path)
     source_frontier = load_frontier(ROOT / "runtime_data" / "github_source_frontier.json")
     source_queries = sorted(
         source_frontier.get("queries", {}).values(),
@@ -48,7 +53,8 @@ def main() -> int:
             "query_count": len(source_frontier.get("queries", {})),
             "top_queries": source_queries,
         },
-        "jobs": scheduler.list_jobs(limit=10),
+        "continuous_training": ledger_summary(training_ledger),
+        "jobs": jobs[:10],
         "nodes": scheduler.list_nodes(limit=10),
     }
     print(json.dumps(payload, ensure_ascii=False, indent=2))

@@ -18,6 +18,7 @@ def main() -> int:
     parser.add_argument("--server", default="http://127.0.0.1:8000")
     parser.add_argument("--sources", default="runtime_data/github_code_sources.json")
     parser.add_argument("--frontier", default="runtime_data/github_source_frontier.json")
+    parser.add_argument("--ledger", default="runtime_data/continuous_training_ledger.json")
     parser.add_argument("--work-root", default="runtime_data/autonomous_source_training")
     parser.add_argument("--no-discover", action="store_true")
     parser.add_argument("--no-fetch", action="store_true")
@@ -43,6 +44,7 @@ def main() -> int:
             max_steps=args.max_steps,
             frontier_path=args.frontier,
             max_discovery_queries=args.max_discovery_queries,
+            ledger_path=args.ledger,
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if not args.loop:

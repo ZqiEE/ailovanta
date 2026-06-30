@@ -89,9 +89,12 @@ The automatic job discovers GitHub sources through a persistent frontier, writes
 ```text
 runtime_data/github_source_frontier.json
 runtime_data/github_code_sources.json
+runtime_data/continuous_training_ledger.json
 ```
 
 `github_source_frontier.json` is the autonomous crawler state. It chooses due GitHub queries, expands new queries from languages/topics found in results, and scores sources. `github_code_sources.json` is the resulting source manifest/audit ledger, not a hand-written source list.
+
+`continuous_training_ledger.json` is the training scheduler memory. It tracks source fingerprints, dataset hashes, job ids, and queued/done status so full-auto keeps moving to fresh code instead of repeatedly training the same batch.
 
 ```text
 runtime_data/models/<job-name>-<version>/ngram_model.json
@@ -152,6 +155,7 @@ local GPU worker registration: implemented
 real local lightweight training artifact: implemented
 local chunk manifest + replica book for trained artifacts: implemented
 automatic local replica repair/maintenance: implemented
+continuous source training ledger: implemented
 CUDA/QLoRA training backend: supported when optional dependencies and CUDA torch are installed
 continuous distributed training: next stage, requires many external workers and promotion automation
 ```

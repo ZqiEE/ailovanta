@@ -6,6 +6,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from api.continuous_training_ledger import record_training_batch, sync_ledger_with_jobs, write_limited_sources
 from api.github_code_ingest import ingest_sources
 
 
@@ -16,6 +17,12 @@ def post_json(server: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def get_json(server: str, path: str) -> dict[str, Any]:
+    request = urllib.request.Request(server.rstrip("/") + path, method="GET")
     with urllib.request.urlopen(request, timeout=60) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -32,13 +39,24 @@ def run_autonomous_source_training_cycle(
     max_steps: int = 16,
     frontier_path: str | Path = "runtime_data/github_source_frontier.json",
     max_discovery_queries: int = 5,
+    ledger_path: str | Path = "runtime_data/continuous_training_ledger.json",
 ) -> dict[str, Any]:
     root = Path(work_root)
     root.mkdir(parents=True, exist_ok=True)
     sources = Path(sources_path)
 
     discovery = discover_sources_if_needed(sources, enabled=discover, frontier_path=frontier_path, max_queries=max_discovery_queries)
-    limited_sources = limit_sources(sources, root / "sources_limited.json", max_sources)
+    scheduler_sync = sync_training_ledger_from_server(server, ledger_path)
+    selection = limit_sources(sources, root / "sources_limited.json", max_sources, ledger_path=ledger_path, corpus_mode=corpus_mode)
+    limited_sources = Path(str(selection["output"]))
+    if not selection["selected"]:
+        return {
+            "ok": False,
+            "stage": "no_new_sources",
+            "discovery": discovery,
+            "scheduler_sync": scheduler_sync,
+            "selection": selection,
+        }
     corpus_path = root / "code_corpus.jsonl"
     ingest = ingest_sources(
         limited_sources,
@@ -57,6 +75,8 @@ def run_autonomous_source_training_cycle(
             "ok": False,
             "stage": "no_training_records",
             "discovery": discovery,
+            "scheduler_sync": scheduler_sync,
+            "selection": selection,
             "ingest": compact_ingest(ingest),
             "dataset": dataset,
         }
@@ -73,14 +93,26 @@ def run_autonomous_source_training_cycle(
             "notes": "autonomous source discovery -> ingest -> training job",
         },
     )
+    ledger = record_training_batch(
+        ledger_path,
+        selected_sources=selection["selected"],
+        dataset_path=dataset_path,
+        dataset=dataset,
+        job=job,
+        ingest=ingest,
+        corpus_mode=corpus_mode,
+    )
     return {
         "ok": True,
         "stage": "training_job_queued",
         "server": server,
         "discovery": discovery,
+        "scheduler_sync": scheduler_sync,
+        "selection": selection,
         "ingest": compact_ingest(ingest),
         "dataset": dataset,
         "job": job,
+        "ledger": {"path": str(ledger_path), "sources": len(ledger.get("sources", {})), "batches": len(ledger.get("batches", {}))},
         "created_at": round(time.time(), 3),
     }
 
@@ -115,14 +147,16 @@ def discover_sources_if_needed(output_path: Path, enabled: bool, frontier_path: 
     return {**result, "enabled": True, "output": str(output_path)}
 
 
-def limit_sources(source_path: Path, output_path: Path, max_sources: int) -> Path:
-    payload = json.loads(source_path.read_text(encoding="utf-8-sig"))
-    sources = [item for item in payload.get("sources", []) if item.get("enabled", True)]
-    sources.sort(key=lambda item: float(item.get("discovery_score") or 0), reverse=True)
-    limited = {**payload, "sources": sources[:max_sources]}
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(limited, ensure_ascii=False, indent=2), encoding="utf-8")
-    return output_path
+def sync_training_ledger_from_server(server: str, ledger_path: str | Path) -> dict[str, Any]:
+    try:
+        jobs = get_json(server, "/training/jobs?limit=200").get("jobs", [])
+    except Exception as exc:
+        return {"ok": False, "reason": type(exc).__name__, "message": str(exc), "ledger_path": str(ledger_path)}
+    return sync_ledger_with_jobs(ledger_path, jobs)
+
+
+def limit_sources(source_path: Path, output_path: Path, max_sources: int, ledger_path: str | Path = "runtime_data/continuous_training_ledger.json", corpus_mode: str = "mixed") -> dict[str, Any]:
+    return write_limited_sources(source_path, output_path, ledger_path, max_sources=max_sources, corpus_mode=corpus_mode)
 
 
 def corpus_to_training_dataset(corpus_path: str | Path, output_path: str | Path, max_records: int = 512) -> dict[str, Any]:

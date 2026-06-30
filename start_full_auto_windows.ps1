@@ -110,6 +110,7 @@ Write-Step "Starting autonomous discovery/training queue"
 $AutoArgs = @(
   "scripts\run_autonomous_source_training.py",
   "--server", $Server,
+  "--ledger", "runtime_data\continuous_training_ledger.json",
   "--max-sources", "$MaxSources",
   "--max-discovery-queries", "$MaxDiscoveryQueries",
   "--max-records", "$MaxRecords",

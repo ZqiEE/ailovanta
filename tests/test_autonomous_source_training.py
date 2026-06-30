@@ -110,6 +110,57 @@ def test_limit_sources_prefers_high_discovery_score(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    limited = limit_sources(source_path, tmp_path / "limited.json", max_sources=1)
-    payload = json.loads(limited.read_text(encoding="utf-8"))
+    limited = limit_sources(source_path, tmp_path / "limited.json", max_sources=1, ledger_path=tmp_path / "ledger.json")
+    payload = json.loads(Path(limited["output"]).read_text(encoding="utf-8"))
     assert payload["sources"][0]["name"] == "high"
+
+
+def test_autonomous_source_training_cycle_skips_when_no_new_sources(monkeypatch, tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "README.md").write_text("Ailovanta repeated source should not be queued twice." * 3, encoding="utf-8")
+    sources = tmp_path / "sources.json"
+    source = {
+        "name": "local-source",
+        "path": str(repo),
+        "license_policy": "owner_controlled",
+        "enabled": True,
+        "discovery_score": 10,
+    }
+    sources.write_text(json.dumps({"schema_version": "ailovanta.github_code_sources.v1", "sources": [source]}), encoding="utf-8")
+
+    posts = []
+
+    def fake_post(server: str, path: str, body: dict):
+        posts.append(body)
+        return {"ok": True, "job": {"id": "train_auto_1", "status": "queued", "payload": body}}
+
+    monkeypatch.setattr("api.autonomous_source_training.post_json", fake_post)
+    monkeypatch.setattr("api.autonomous_source_training.get_json", lambda server, path: {"jobs": []})
+
+    first = run_autonomous_source_training_cycle(
+        server="http://127.0.0.1:8000",
+        sources_path=sources,
+        work_root=tmp_path / "work",
+        discover=False,
+        fetch=False,
+        max_sources=1,
+        max_records=10,
+        corpus_mode="mixed",
+        ledger_path=tmp_path / "ledger.json",
+    )
+    second = run_autonomous_source_training_cycle(
+        server="http://127.0.0.1:8000",
+        sources_path=sources,
+        work_root=tmp_path / "work",
+        discover=False,
+        fetch=False,
+        max_sources=1,
+        max_records=10,
+        corpus_mode="mixed",
+        ledger_path=tmp_path / "ledger.json",
+    )
+
+    assert first["stage"] == "training_job_queued"
+    assert second["stage"] == "no_new_sources"
+    assert len(posts) == 1
