@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from api.ailovanta_native import AilovantaRunRequest, build_run_result
 from api.auth_store import AuthStore
@@ -78,12 +78,30 @@ class JobResult(BaseModel):
 
 
 class TrainingJobRequest(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     kind: TrainingKind
     name: str
     dataset_uri: str
     base_model: str = "qwen2.5:3b"
     max_steps: int = Field(default=100, ge=1, le=10000)
     notes: str = ""
+    real: bool = False
+    use_transformers: bool = False
+    peft: bool = False
+    lora: bool = False
+    qlora: bool = False
+    requires_gpu: bool = False
+    allow_lightweight_fallback: bool = False
+    priority: int | None = Field(default=None, ge=0, le=1000)
+    min_memory_gb: float | None = Field(default=None, ge=0)
+    min_cpu_threads: int | None = Field(default=None, ge=0)
+    output_dir: str | None = None
+    batch_size: int | None = Field(default=None, ge=1)
+    gradient_accumulation_steps: int | None = Field(default=None, ge=1)
+    learning_rate: float | None = Field(default=None, gt=0)
+    max_length: int | None = Field(default=None, ge=1)
+    target_modules: list[str] | None = None
 
 
 class ModelVersionRequest(BaseModel):

@@ -125,6 +125,83 @@ def test_training_job_and_model_version() -> None:
             store.path = original_path
 
 
+def test_training_job_preserves_real_lora_gpu_payload_and_routes_to_gpu() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        local_store = SchedulerStore(Path(tmp) / "scheduler.sqlite3")
+        original_path = store.path
+        store.path = local_store.path
+        try:
+            client = TestClient(app)
+            submitted = client.post(
+                "/training/jobs",
+                json={
+                    "kind": "lora_micro",
+                    "name": "pytest-real-lora",
+                    "dataset_uri": "file:///tmp/ailovanta-train.jsonl",
+                    "base_model": "sshleifer/tiny-gpt2",
+                    "max_steps": 8,
+                    "real": True,
+                    "use_transformers": True,
+                    "peft": True,
+                    "lora": True,
+                    "requires_gpu": True,
+                    "allow_lightweight_fallback": False,
+                    "priority": 100,
+                    "min_memory_gb": 8,
+                    "batch_size": 1,
+                    "learning_rate": 0.0002,
+                },
+            )
+            assert submitted.status_code == 200
+            job_id = submitted.json()["job"]["id"]
+            payload = submitted.json()["job"]["payload"]
+            assert payload["real"] is True
+            assert payload["use_transformers"] is True
+            assert payload["peft"] is True
+            assert payload["lora"] is True
+            assert payload["requires_gpu"] is True
+            assert payload["allow_lightweight_fallback"] is False
+            assert payload["priority"] == 100
+            assert payload["batch_size"] == 1
+
+            cpu = client.post(
+                "/nodes/register",
+                json={
+                    "node_id": "pytest-cpu-node",
+                    "device_name": "pytest-cpu",
+                    "cpu_threads": 8,
+                    "memory_gb": 32,
+                    "has_gpu": False,
+                    "gpu_name": None,
+                    "contribution_percent": 30,
+                },
+            )
+            assert cpu.status_code == 200
+            cpu_assignment = client.get("/jobs/next", params={"node_id": "pytest-cpu-node"})
+            if cpu_assignment.status_code == 200:
+                assert cpu_assignment.json()["job"]["id"] != job_id
+
+            gpu = client.post(
+                "/nodes/register",
+                json={
+                    "node_id": "pytest-gpu-node",
+                    "device_name": "pytest-gpu",
+                    "cpu_threads": 16,
+                    "memory_gb": 64,
+                    "has_gpu": True,
+                    "gpu_name": "pytest-gpu",
+                    "contribution_percent": 30,
+                },
+            )
+            assert gpu.status_code == 200
+            assigned = client.get("/jobs/next", params={"node_id": "pytest-gpu-node"})
+            assert assigned.status_code == 200
+            assert assigned.json()["job"]["id"] == job_id
+            assert assigned.json()["job"]["payload"]["allow_lightweight_fallback"] is False
+        finally:
+            store.path = original_path
+
+
 def test_runtime_router_prefers_warm_verified_runtime(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("AILOVANTA_NODE_TRUST_PATH", str(tmp_path / "node_trust.sqlite3"))
     trust = NodeTrustStore()
