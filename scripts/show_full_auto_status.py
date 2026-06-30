@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
 
 from api.artifact_binding import ArtifactBindingStore
 from api.gpu_probe import detect_gpu
+from api.replica_book import status as replica_status
 from api.storage import SchedulerStore
 
 
@@ -25,6 +26,7 @@ def main() -> int:
         "gpu": detect_gpu(),
         "scheduler": scheduler.status(),
         "latest_owned_binding": latest_binding,
+        "replica_status": replica_status(ROOT / "runtime_data" / "replica_book.json"),
         "jobs": scheduler.list_jobs(limit=10),
         "nodes": scheduler.list_nodes(limit=10),
     }

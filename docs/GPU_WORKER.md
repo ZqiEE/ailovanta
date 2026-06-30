@@ -32,6 +32,7 @@ API/app server
 autonomous GitHub/source discovery and training queue
 local GPU/CPU worker
 owned runtime bootstrap and artifact binding
+training artifact chunk manifest and replica book registration
 ```
 
 Check state:
@@ -93,7 +94,16 @@ If Transformers/CUDA/PEFT are installed and the job requests them, `api.model_jo
 
 The old `seed_training_job_windows.bat` command is only a deterministic smoke-test helper. Use `start_auto_training_windows.bat` for the real autonomous path.
 
-After a local training artifact is produced, the worker binds it to `ailovanta-owned:candidate` so owned chat can route through the latest training artifact instead of the bootstrap checkpoint. If you already trained before this binding step existed, bind the newest local artifact manually:
+After a local training artifact is produced, the worker binds it to `ailovanta-owned:candidate` so owned chat can route through the latest training artifact instead of the bootstrap checkpoint. The binding also writes:
+
+```text
+runtime_data/artifact_manifests/<artifact_id>.manifest.json
+runtime_data/replica_book.json
+```
+
+This is the local version of the distributed model storage plan: large model files are represented by chunk hashes, replica policy, replica locations, and runtime binding metadata. Runtime should load through the binding and manifest hash, not by handing out raw model files as public assets.
+
+If you already trained before this binding step existed, bind the newest local artifact manually:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\bind_latest_training_artifact.py
@@ -128,6 +138,7 @@ owned runtime route: implemented
 artifact binding/provenance: implemented
 local GPU worker registration: implemented
 real local lightweight training artifact: implemented
+local chunk manifest + replica book for trained artifacts: implemented
 CUDA/QLoRA training backend: supported when optional dependencies and CUDA torch are installed
 continuous distributed training: next stage, requires many external workers and promotion automation
 ```

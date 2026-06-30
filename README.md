@@ -238,6 +238,8 @@ One-command full-auto mode starts the API, autonomous source discovery/training 
 .\start_full_auto_windows.bat
 ```
 
+Full-auto is code-first: it discovers sources, builds code/instruction training data, queues training jobs, runs the local worker, binds the artifact to owned chat, and writes chunk/replica metadata for distributed storage.
+
 Check full-auto state:
 
 ```powershell

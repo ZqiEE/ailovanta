@@ -173,9 +173,13 @@ GitHub source discovery
 -> /training/jobs queue submission
 -> worker training
 -> artifact binding into owned runtime
+-> chunk manifest generation
+-> replica_book registration
 ```
 
 Use `-Loop` on `start_auto_training_windows.bat` to keep discovering and queuing new jobs periodically.
+
+Training is code-first by default. The autonomous path builds instruction/code corpora from repository docs, tests, examples, API usage, and source files before creating `lora_micro` jobs. This matches the product direction: first improve code intelligence with measurable artifacts, then promote stronger model backends.
 
 For low-level syntax, spelling, AST shape, and API usage training, run:
 

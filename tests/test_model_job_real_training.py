@@ -98,12 +98,23 @@ def test_bind_local_training_artifact_registers_runtime_binding(tmp_path: Path) 
 
     from api.artifact_binding import ArtifactBindingStore
 
-    binding = bind_local_training_artifact(result, ArtifactBindingStore(tmp_path / "bindings.sqlite3"))
+    binding = bind_local_training_artifact(
+        result,
+        ArtifactBindingStore(tmp_path / "bindings.sqlite3"),
+        manifest_dir=tmp_path / "artifact_manifests",
+        replica_book_path=tmp_path / "replica_book.json",
+    )
 
     assert binding is not None
     assert binding["model_key"] == "ailovanta-owned:candidate"
     assert binding["backend_kind"] == "lightweight-ngram"
     assert binding["status"] == "active"
+    distribution = binding["metadata"]["artifact_distribution"]
+    assert distribution["schema_version"] == "ailovanta.artifact_distribution.v1"
+    assert distribution["manifest_hash"].startswith("sha256:")
+    assert Path(distribution["manifest_uri"].removeprefix("file://")).exists()
+    assert distribution["replica_book_path"].endswith("replica_book.json")
+    assert binding["metadata"]["storage_policy"]["mode"] == "distributed_chunk_manifest"
 
 
 def test_try_post_treats_missing_optional_catalog_as_none(monkeypatch) -> None:
