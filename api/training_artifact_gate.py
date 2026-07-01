@@ -124,6 +124,7 @@ def _evaluate_transformers_model(binding: dict[str, Any], record: dict[str, Any]
     backend = str(((record.get("metrics") or {}) if isinstance(record.get("metrics"), dict) else {}).get("backend") or "")
     if backend not in {"transformers", "lora", "qlora"}:
         blockers.append("unsupported_real_training_backend")
+    blockers.extend(_evaluate_training_worker_receipt(binding, record))
     evidence = record.get("training_runtime_evidence") if isinstance(record.get("training_runtime_evidence"), dict) else {}
     if not evidence:
         blockers.append("missing_training_runtime_evidence")
@@ -152,6 +153,26 @@ def _evaluate_transformers_model(binding: dict[str, Any], record: dict[str, Any]
     elif not path.is_dir():
         blockers.append("backend_ref_not_model_directory")
     return blockers, record
+
+
+def _evaluate_training_worker_receipt(binding: dict[str, Any], record: dict[str, Any]) -> list[str]:
+    metadata = binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}
+    receipt = metadata.get("training_worker_receipt") if isinstance(metadata.get("training_worker_receipt"), dict) else {}
+    if not receipt:
+        return ["missing_training_worker_receipt"]
+    blockers: list[str] = []
+    if receipt.get("passed") is not True:
+        blockers.append("training_worker_receipt_failed")
+    if str(receipt.get("artifact_hash") or "") != str(binding.get("artifact_hash") or ""):
+        blockers.append("training_worker_receipt_artifact_hash_mismatch")
+    receipt_binding_id = str(receipt.get("artifact_binding_id") or "")
+    if receipt_binding_id and receipt_binding_id != str(binding.get("binding_id") or ""):
+        blockers.append("training_worker_receipt_binding_id_mismatch")
+    if str(receipt.get("job_id") or "") != str(record.get("source_job_id") or metadata.get("source_job_id") or ""):
+        blockers.append("training_worker_receipt_job_id_mismatch")
+    if not str(receipt.get("receipt_hash") or "").startswith("sha256:"):
+        blockers.append("training_worker_receipt_missing_hash")
+    return blockers
 
 
 def _evaluate_dataset_from_model(

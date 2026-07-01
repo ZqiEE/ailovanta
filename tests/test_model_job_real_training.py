@@ -9,7 +9,7 @@ from api.artifact_integrity import verify_artifact_uri
 from api.model_job import resolve_dataset_path, run_model_job
 from api.node_client import make_output, submit_failure_actions, submit_training_worker_result, try_post
 from api.secure_artifact_pack import generate_artifact_key
-from api.training_artifact_binding import bind_local_training_artifact
+from api.training_artifact_binding import attach_training_worker_receipt, bind_local_training_artifact
 
 
 def write_dataset(path: Path) -> Path:
@@ -325,7 +325,90 @@ def test_bind_local_training_artifact_registers_transformers_directory_candidate
     assert gate["artifact_integrity"]["ok"] is True
     assert gate["ok"] is False
     assert "missing_training_runtime_evidence" in gate["blockers"]
+    assert "missing_training_worker_receipt" in gate["blockers"]
     assert any(item.startswith("code_generation:") for item in gate["blockers"])
+
+
+def test_training_worker_receipt_is_attached_to_binding_gate(tmp_path: Path, monkeypatch) -> None:
+    pytest.importorskip("cryptography")
+    dataset = write_dataset(tmp_path / "train.jsonl")
+    output_dir = tmp_path / "transformers-model"
+    output_dir.mkdir()
+    (output_dir / "config.json").write_text('{"model_type":"gpt2"}', encoding="utf-8")
+    record = {
+        "schema": "ailovanta.model_output.v1",
+        "name": "real-transformers",
+        "version": "v1",
+        "source_job_id": "job-transformers-receipt",
+        "base_model": "local-base",
+        "dataset_uri": "file://" + str(dataset),
+        "data_path": "file://" + str(dataset),
+        "kind": "full_model",
+        "location": str(output_dir),
+        "metrics": {"backend": "transformers", "score": 0.8},
+        "backend_message": "local transformers run finished",
+        "training_runtime_evidence": {
+            "requested_real_training": True,
+            "requested_backend": "transformers",
+            "requires_gpu": False,
+            "actual_backend": "transformers",
+            "real_training_executed": True,
+            "fallback_used": False,
+        },
+    }
+    (output_dir / "output.json").write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+    monkeypatch.setenv("AILOVANTA_ARTIFACT_ENCRYPTION_KEY", generate_artifact_key())
+
+    from api.artifact_binding import ArtifactBindingStore
+
+    store = ArtifactBindingStore(tmp_path / "bindings.sqlite3")
+    binding = bind_local_training_artifact(
+        {
+            "name": "real-transformers",
+            "version": "v1",
+            "source_job_id": "job-transformers-receipt",
+            "location": str(output_dir),
+            "kind": "full_model",
+            "metrics": {"backend": "transformers", "score": 0.8},
+            "status": "candidate",
+            "notes": "local transformers run finished",
+            "training_runtime_evidence": record["training_runtime_evidence"],
+        },
+        store,
+        manifest_dir=tmp_path / "artifact_manifests",
+        replica_book_path=tmp_path / "replica_book.json",
+        replica_tasks_path=tmp_path / "replica_repair_tasks.json",
+        replica_storage_root=tmp_path / "storage_replicas",
+        failure_actions_path=tmp_path / "candidate_failure_actions.json",
+    )
+    assert binding is not None
+    assert "missing_training_worker_receipt" in binding["metadata"]["promotion_gate"]["blockers"]
+
+    receipt = {
+        "schema_version": "ailovanta.training_worker_result_receipt.v1",
+        "receipt_id": "twr-receipt",
+        "result_hash": "sha256:" + "1" * 64,
+        "node_id": "node-gpu-1",
+        "job_id": "job-transformers-receipt",
+        "artifact_hash": binding["artifact_hash"],
+        "artifact_binding_id": binding["binding_id"],
+        "passed": True,
+        "score": 1.0,
+        "blockers": [],
+        "receipt_hash": "sha256:" + "2" * 64,
+    }
+    updated = attach_training_worker_receipt(
+        binding,
+        receipt,
+        store,
+        replica_book_path=tmp_path / "replica_book.json",
+        failure_actions_path=tmp_path / "candidate_failure_actions.json",
+    )
+
+    assert updated is not None
+    blockers = updated["metadata"]["promotion_gate"]["blockers"]
+    assert updated["metadata"]["training_worker_receipt"]["receipt_id"] == "twr-receipt"
+    assert "missing_training_worker_receipt" not in blockers
 
 
 def test_bind_local_training_artifact_ignores_failed_real_output(tmp_path: Path) -> None:

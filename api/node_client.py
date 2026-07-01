@@ -14,7 +14,7 @@ from typing import Any
 from api.candidate_failure_actions import mark_action_submitted
 from api.gpu_probe import detect_gpu
 from api.model_job import run_model_job
-from api.training_artifact_binding import bind_local_training_artifact
+from api.training_artifact_binding import attach_training_worker_receipt, bind_local_training_artifact
 from api.training_worker_result_validator import build_training_worker_result
 
 
@@ -184,6 +184,8 @@ def main() -> int:
             result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
             binding = bind_local_training_artifact(output)
             training_worker_validation = submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=binding)
+            if binding and training_worker_validation and training_worker_validation.get("receipt"):
+                binding = attach_training_worker_receipt(binding, training_worker_validation.get("receipt")) or binding
             failure_action_submissions = submit_failure_actions(args.server, binding)
             print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding, "training_worker_validation": training_worker_validation, "failure_action_submissions": failure_action_submissions}, ensure_ascii=False, indent=2))
             post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})

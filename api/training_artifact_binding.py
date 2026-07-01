@@ -8,6 +8,7 @@ from api.artifact_binding import ArtifactBindingStore
 from api.artifact_distribution import distribution_metadata, prepare_local_artifact_distribution
 from api.candidate_failure_actions import plan_failure_actions
 from api.replica_maintenance import run_replica_maintenance_once
+from api.runtime_ref import to_local_path
 from api.training_artifact_gate import evaluate_training_artifact_binding
 
 
@@ -100,6 +101,35 @@ def bind_local_training_artifact(
     return binding
 
 
+def attach_training_worker_receipt(
+    binding: dict[str, Any],
+    receipt: dict[str, Any] | None,
+    binding_store: ArtifactBindingStore | None = None,
+    replica_book_path: str | Path = "runtime_data/replica_book.json",
+    failure_actions_path: str | Path = "runtime_data/candidate_failure_actions.json",
+) -> dict[str, Any] | None:
+    if not binding or not receipt:
+        return binding
+    store = binding_store or ArtifactBindingStore()
+    model_path = _gate_model_path_for_binding(binding)
+    if model_path is None:
+        return binding
+
+    metadata = {
+        **(binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}),
+        "training_worker_receipt": _compact_training_worker_receipt(receipt),
+    }
+    updated = store.update_metadata(binding["binding_id"], metadata) or {**binding, "metadata": metadata}
+    gate = evaluate_training_artifact_binding(updated, model_path=model_path, replica_book_path=replica_book_path)
+    updated_metadata = {**(updated.get("metadata") if isinstance(updated.get("metadata"), dict) else {}), "promotion_gate": gate}
+    if not gate.get("ok"):
+        updated_metadata["failure_actions"] = plan_failure_actions(updated, gate, action_path=failure_actions_path)
+    updated = store.update_metadata(updated["binding_id"], updated_metadata) or {**updated, "metadata": updated_metadata}
+    if gate.get("ok"):
+        updated = store.set_status(updated["binding_id"], "active") or updated
+    return updated
+
+
 def _resolve_training_artifact(location: Path, output: dict[str, Any]) -> dict[str, Any] | None:
     ngram_path = location / "ngram_model.json"
     if ngram_path.exists():
@@ -120,3 +150,40 @@ def _resolve_training_artifact(location: Path, output: dict[str, Any]) -> dict[s
             "storage_mode": "sealed_distributed_model_directory_manifest",
         }
     return None
+
+
+def _gate_model_path_for_binding(binding: dict[str, Any]) -> Path | None:
+    metadata = binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}
+    output_location = Path(str(metadata.get("output_location") or ""))
+    backend_kind = str(binding.get("backend_kind") or "")
+    if backend_kind == "lightweight-ngram":
+        candidate = output_location / "ngram_model.json"
+        return candidate if candidate.exists() else None
+    if backend_kind in {"transformers-local", "transformers-causal-lm"}:
+        candidate = output_location / "output.json"
+        if candidate.exists():
+            return candidate
+    backend_path = to_local_path(str(binding.get("backend_ref") or binding.get("checkpoint_uri") or ""))
+    if backend_path and backend_path.is_dir() and (backend_path / "output.json").exists():
+        return backend_path / "output.json"
+    if backend_path and backend_path.is_file():
+        return backend_path
+    return None
+
+
+def _compact_training_worker_receipt(receipt: dict[str, Any]) -> dict[str, Any]:
+    keys = [
+        "schema_version",
+        "receipt_id",
+        "result_hash",
+        "node_id",
+        "job_id",
+        "artifact_hash",
+        "artifact_binding_id",
+        "passed",
+        "score",
+        "blockers",
+        "receipt_hash",
+        "created_at",
+    ]
+    return {key: receipt.get(key) for key in keys if key in receipt}
