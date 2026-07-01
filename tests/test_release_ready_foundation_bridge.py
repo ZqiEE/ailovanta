@@ -10,10 +10,12 @@ def test_release_ready_mounts_foundation_bridge_routes() -> None:
         "/foundation/jobs",
         "/foundation/results/import",
         "/foundation/pipeline/run",
-        "/learning/foundation/jobs/from-latest-pack",
+        "/learning/foundation/jobs",
+        "/learning/foundation/run",
         "/learning/gate/run",
         "/artifact-bindings",
-        "/model-monitor/shadows",
+        "/model-monitor/shadow",
+        "/model-monitor/live",
         "/ops/release/gate",
     }
     missing = sorted(required - paths)
