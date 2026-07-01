@@ -694,6 +694,8 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
                 "assistant_message": assistant_message,
                 "context_messages_used": len(context_messages),
                 "owned_model_ready": True,
+                "self_trained_ready": bool(result.model_readiness.get("self_trained_ready")),
+                "model_readiness": result.model_readiness,
                 "model_id": result.model_id,
                 "version": result.version,
             }

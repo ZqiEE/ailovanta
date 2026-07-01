@@ -6,6 +6,7 @@ from typing import Any
 from typing import Literal
 
 from api.artifact_binding import ArtifactBindingStore
+from api.owned_model_readiness import classify_owned_model_readiness
 from api.route_book import RouteBook
 from api.runtime_ref import check_runtime_ref
 from api.worker_transport import WorkerInferenceClient, WorkerInferenceRequest, WorkerInferenceUnavailable
@@ -33,6 +34,7 @@ class OwnedModelResult:
     runtime_route: dict
     policy_mode: PolicyMode
     worker_result: dict[str, Any]
+    model_readiness: dict[str, Any]
 
 
 class OwnedModelUnavailable(RuntimeError):
@@ -123,4 +125,5 @@ class OwnedModelRuntime:
             runtime_route=route_with_binding,
             policy_mode=request.policy_mode,
             worker_result=worker_result.raw,
+            model_readiness=classify_owned_model_readiness(binding),
         )

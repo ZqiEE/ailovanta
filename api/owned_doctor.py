@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from api.artifact_binding import ArtifactBindingStore
+from api.owned_model_readiness import classify_owned_model_readiness
 from api.runtime_ref import check_runtime_ref
 from api.runtime_store import RuntimeStore
 
@@ -31,10 +32,12 @@ class OwnedDoctor:
             blockers.append("runtime_model_not_active")
         if not node_ok:
             blockers.append("no_online_node_with_cached_model")
+        readiness = classify_owned_model_readiness(binding)
         return {
             "ok": not blockers,
             "model_key": model_key,
             "blockers": blockers,
+            "readiness": readiness,
             "binding": binding,
             "ref_check": ref_report,
             "runtime_model": model,

@@ -26,6 +26,8 @@ def test_bootstrap_owned_runtime_enables_owned_chat(monkeypatch, tmp_path) -> No
     assert RuntimeEndpointStore(tmp_path / "runtime_endpoints.json").get("rt-owned-1")["url"] == "inprocess://ailovanta-worker"
     assert response.status_code == 200
     assert body["owned_model_ready"] is True
+    assert body["self_trained_ready"] is False
+    assert body["model_readiness"]["stage"] == "bootstrap_connected"
     assert body["source"] == "ailovanta-worker"
     assert "不是已训练完成" in body["answer"]
     assert "Loaded the local checkpoint metadata" not in body["answer"]

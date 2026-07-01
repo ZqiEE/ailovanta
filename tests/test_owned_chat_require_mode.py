@@ -99,6 +99,7 @@ def test_native_chat_requires_owned_runtime(monkeypatch, tmp_path) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["owned_model_ready"] is True
+    assert body["self_trained_ready"] is False
     assert body["answer"] == "owned worker answer"
     assert body["source"] == "test-owned-worker"
     assert body["runtime_route"]["assignment"]["runtime_id"] == "rt-owned-1"
@@ -152,6 +153,7 @@ def test_native_chat_prefers_owned_runtime_by_default(monkeypatch, tmp_path) -> 
 
     assert response.status_code == 200
     assert body["owned_model_ready"] is True
+    assert body["self_trained_ready"] is False
     assert body["source"] == "test-owned-worker"
     assert body["answer"] == "owned worker answer"
 

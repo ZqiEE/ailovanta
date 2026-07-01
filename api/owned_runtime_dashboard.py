@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from api.artifact_binding import ArtifactBindingStore
+from api.owned_model_readiness import classify_owned_model_readiness
 from api.reputation_ops import ReputationOps
 from api.runtime_store import RuntimeStore
 from api.worker_result_validator import WorkerResultValidationStore
@@ -13,10 +15,12 @@ class OwnedRuntimeDashboard:
         runtime_store: RuntimeStore,
         validation_store: WorkerResultValidationStore,
         reputation_store: ReputationOps,
+        binding_store: ArtifactBindingStore | None = None,
     ) -> None:
         self.runtime_store = runtime_store
         self.validation_store = validation_store
         self.reputation_store = reputation_store
+        self.binding_store = binding_store or ArtifactBindingStore()
 
     def summary(self, limit: int = 20) -> dict[str, Any]:
         runtime_status = self.runtime_store.status()
@@ -28,11 +32,14 @@ class OwnedRuntimeDashboard:
         passed_count = len([item for item in validations if item.get("passed")])
         pass_rate = round(passed_count / len(validations), 3) if validations else 0.0
         recent_successful_route = next((item for item in assignments if item.get("assigned")), None)
+        binding = self.binding_store.latest_for_model_statuses("ailovanta-owned:candidate", ("active",))
+        readiness = classify_owned_model_readiness(binding)
         blockers = self._blockers(runtime_status, assignments, validations)
 
         return {
             "ok": not blockers,
             "blockers": blockers,
+            "model_readiness": readiness,
             "runtime": runtime_status,
             "route": {
                 "recent_assignments": assignments,
