@@ -4,10 +4,12 @@ from typing import Any
 
 from api.artifact_binding import ArtifactBindingStore
 from api.model_warm import ModelWarm, WarmSpec
+from api.owned_promotion_proof import build_owned_promotion_proof, promotion_proof_ok
 from api.route_book import RouteBook
 
 
 DEFAULT_ROUTE_KEY = "owned-chat/default"
+REAL_ROUTE_BACKENDS = {"transformers-local", "transformers-causal-lm"}
 
 
 def publish_owned_route_if_active(
@@ -34,6 +36,16 @@ def publish_owned_route_if_active(
     warm_result = warm.run(WarmSpec(model_key=str(binding.get("model_key") or ""), runtime_id=runtime_id, node_id=node_id))
     if not warm_result.get("ok"):
         return {"ok": False, "reason": "runtime_warm_failed", "binding_id": binding.get("binding_id"), "warm": warm_result, "route": None}
+    promotion_proof = build_owned_promotion_proof(binding, runtime_id=runtime_id, node_id=node_id, route_key=route_key)
+    if binding.get("backend_kind") in REAL_ROUTE_BACKENDS and not promotion_proof_ok(promotion_proof):
+        return {
+            "ok": False,
+            "reason": "promotion_proof_not_ok",
+            "binding_id": binding.get("binding_id"),
+            "warm": warm_result,
+            "route": None,
+            "promotion_proof": promotion_proof,
+        }
 
     route = (routes or RouteBook()).set_active(
         route_key,
@@ -47,9 +59,10 @@ def publish_owned_route_if_active(
             "backend_kind": binding.get("backend_kind"),
             "promotion_gate": _compact_gate(gate),
             "training_worker_receipt": _compact_receipt(metadata.get("training_worker_receipt") if isinstance(metadata.get("training_worker_receipt"), dict) else {}),
+            "promotion_proof": promotion_proof,
         },
     )
-    return {"ok": True, "reason": "published", "binding_id": binding.get("binding_id"), "warm": warm_result, "route": route}
+    return {"ok": True, "reason": "published", "binding_id": binding.get("binding_id"), "warm": warm_result, "route": route, "promotion_proof": promotion_proof}
 
 
 def _compact_gate(gate: dict[str, Any]) -> dict[str, Any]:

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from api.owned_promotion_proof import promotion_proof_ok
+
 
 REAL_BACKENDS = {"transformers-local", "transformers-causal-lm"}
 REAL_TRAINING_BACKENDS = {"transformers", "lora", "qlora"}
@@ -21,6 +23,7 @@ def classify_owned_model_readiness(binding: dict[str, Any] | None) -> dict[str, 
     gate = metadata.get("promotion_gate") if isinstance(metadata.get("promotion_gate"), dict) else {}
     receipt = metadata.get("training_worker_receipt") if isinstance(metadata.get("training_worker_receipt"), dict) else {}
     route_publish = metadata.get("route_publish") if isinstance(metadata.get("route_publish"), dict) else {}
+    promotion_proof = metadata.get("promotion_proof") if isinstance(metadata.get("promotion_proof"), dict) else {}
 
     if backend_kind in REAL_BACKENDS:
         if gate.get("ok") is not True:
@@ -29,6 +32,8 @@ def classify_owned_model_readiness(binding: dict[str, Any] | None) -> dict[str, 
             blockers.append("training_worker_receipt_not_passed")
         if route_publish and route_publish.get("ok") is not True:
             blockers.append("route_publish_not_ok")
+        if not promotion_proof_ok(promotion_proof):
+            blockers.append("promotion_proof_not_ok")
         model_eval = gate.get("model_eval") if isinstance(gate.get("model_eval"), dict) else {}
         runtime_evidence = model_eval.get("runtime_evidence") if isinstance(model_eval.get("runtime_evidence"), dict) else {}
         if runtime_evidence.get("actual_backend") not in REAL_TRAINING_BACKENDS:

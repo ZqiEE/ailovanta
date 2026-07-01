@@ -199,6 +199,8 @@ def _append_route_publish_metadata(store: ArtifactBindingStore, binding: dict[st
         **(binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}),
         "route_publish": _compact_route_publish(route_publish),
     }
+    if isinstance(route_publish.get("promotion_proof"), dict):
+        metadata["promotion_proof"] = _compact_promotion_proof(route_publish["promotion_proof"])
     return store.update_metadata(binding["binding_id"], metadata) or {**binding, "metadata": metadata}
 
 
@@ -211,4 +213,25 @@ def _compact_route_publish(route_publish: dict[str, Any]) -> dict[str, Any]:
         "model_key": route.get("model_key"),
         "binding_id": route.get("binding_id"),
         "status": route.get("status"),
+    }
+
+
+def _compact_promotion_proof(proof: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": proof.get("schema_version"),
+        "proof_hash": proof.get("proof_hash"),
+        "model_key": proof.get("model_key"),
+        "binding_id": proof.get("binding_id"),
+        "artifact_hash": proof.get("artifact_hash"),
+        "backend_kind": proof.get("backend_kind"),
+        "route_key": proof.get("route_key"),
+        "runtime_id": proof.get("runtime_id"),
+        "node_id": proof.get("node_id"),
+        "promotion_gate": proof.get("promotion_gate"),
+        "code_generation_eval": proof.get("code_generation_eval"),
+        "training_worker_receipt": proof.get("training_worker_receipt"),
+        "runtime_evidence": proof.get("runtime_evidence"),
+        "artifact_integrity": proof.get("artifact_integrity"),
+        "artifact_distribution": proof.get("artifact_distribution"),
+        "created_at": proof.get("created_at"),
     }

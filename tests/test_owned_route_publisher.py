@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from api.artifact_binding import ArtifactBindingStore
+from api.owned_promotion_proof import promotion_proof_ok
 from api.owned_route_publisher import publish_owned_route_if_active
 from api.route_book import RouteBook
 from api.training_artifact_binding import bind_local_training_artifact
@@ -60,6 +61,78 @@ def test_publish_owned_route_sets_route_for_active_binding(tmp_path: Path) -> No
     assert result["ok"] is True
     assert routes.active("owned-chat/default")["binding_id"] == binding["binding_id"]
     assert warmer.calls[0].model_key == "ailovanta-owned:candidate"
+    assert result["route"]["metadata"]["promotion_proof"]["proof_hash"].startswith("sha256:")
+
+
+def test_publish_owned_route_requires_complete_proof_for_real_backend(tmp_path: Path) -> None:
+    bindings = ArtifactBindingStore(tmp_path / "bindings.sqlite3")
+    artifact = tmp_path / "model"
+    artifact.mkdir()
+    binding = bindings.register_binding(
+        {"model_id": "ailovanta-owned", "version": "candidate", "manifest_hash": "sha256:runtime"},
+        {"artifact_id": "artifact-1", "artifact_hash": "sha256:" + "a" * 64, "checkpoint_uri": artifact.resolve().as_uri()},
+        backend_kind="transformers-local",
+        backend_ref=artifact.resolve().as_uri(),
+        status="active",
+        metadata={"promotion_gate": {"ok": True, "decision": "promote_active", "blockers": []}},
+    )
+
+    result = publish_owned_route_if_active(binding, routes=RouteBook(tmp_path / "routes.sqlite3"), bindings=bindings, warmer=FakeWarmer())
+
+    assert result["ok"] is False
+    assert result["reason"] == "promotion_proof_not_ok"
+    assert result["promotion_proof"]["promotion_gate"]["ok"] is True
+
+
+def test_publish_owned_route_includes_valid_proof_for_real_artifact(tmp_path: Path) -> None:
+    bindings = ArtifactBindingStore(tmp_path / "bindings.sqlite3")
+    routes = RouteBook(tmp_path / "routes.sqlite3")
+    artifact = tmp_path / "model"
+    artifact.mkdir()
+    artifact_hash = "sha256:" + "a" * 64
+    binding = bindings.register_binding(
+        {"model_id": "ailovanta-owned", "version": "candidate", "manifest_hash": "sha256:runtime"},
+        {"artifact_id": "artifact-1", "artifact_hash": artifact_hash, "checkpoint_uri": artifact.resolve().as_uri()},
+        backend_kind="transformers-local",
+        backend_ref=artifact.resolve().as_uri(),
+        status="active",
+        metadata={
+            "promotion_gate": {
+                "ok": True,
+                "decision": "promote_active",
+                "blockers": [],
+                "code_generation_eval": {"ok": True, "score": 1.0, "passed_cases": 2, "total_cases": 2, "backend_kind": "transformers-local"},
+                "model_eval": {
+                    "runtime_evidence": {
+                        "requested_backend": "qlora",
+                        "actual_backend": "qlora",
+                        "real_training_executed": True,
+                        "fallback_used": False,
+                        "gpu_execution_evidence": {"device_count": 1},
+                        "trained_rows": 64,
+                    }
+                },
+                "artifact_integrity": {"ok": True, "actual_hash": artifact_hash, "expected_hash": artifact_hash},
+                "artifact_distribution": {
+                    "ok": True,
+                    "distribution": {"manifest_hash": "sha256:" + "b" * 64, "storage_artifact_hash": artifact_hash},
+                },
+            },
+            "training_worker_receipt": {
+                "receipt_id": "receipt-1",
+                "receipt_hash": "sha256:" + "c" * 64,
+                "passed": True,
+                "node_id": "node-1",
+                "job_id": "job-1",
+                "artifact_hash": artifact_hash,
+            },
+        },
+    )
+
+    result = publish_owned_route_if_active(binding, routes=routes, bindings=bindings, warmer=FakeWarmer())
+
+    assert result["ok"] is True
+    assert promotion_proof_ok(result["route"]["metadata"]["promotion_proof"]) is True
 
 
 def test_training_artifact_binding_records_route_publish_metadata(tmp_path: Path, monkeypatch) -> None:
