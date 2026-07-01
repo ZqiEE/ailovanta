@@ -107,6 +107,12 @@ def test_run_model_job_strict_real_training_does_not_fallback_to_lightweight(tmp
     assert record["kind"] == "training_failed"
     assert record["real_training_preflight"]["ok"] is False
     assert "base_model_path_missing" in record["real_training_preflight"]["blockers"]
+    evidence = record["training_runtime_evidence"]
+    assert evidence["requested_real_training"] is True
+    assert evidence["requested_backend"] == "lora"
+    assert evidence["real_training_executed"] is False
+    assert evidence["fallback_used"] is False
+    assert evidence["actual_backend"] == "real_training_preflight_failed"
 
 
 def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:
@@ -314,9 +320,11 @@ def test_bind_local_training_artifact_registers_transformers_directory_candidate
     assert distribution["storage_artifact_hash"].startswith("sha256:")
     gate = binding["metadata"]["promotion_gate"]
     assert gate["model_eval"]["backend"] == "transformers"
+    assert gate["model_eval"]["runtime_evidence"]["ok"] is False
     assert gate["code_eval"]["ok"] is True
     assert gate["artifact_integrity"]["ok"] is True
     assert gate["ok"] is False
+    assert "missing_training_runtime_evidence" in gate["blockers"]
     assert any(item.startswith("code_generation:") for item in gate["blockers"])
 
 

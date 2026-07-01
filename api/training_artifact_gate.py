@@ -124,6 +124,25 @@ def _evaluate_transformers_model(binding: dict[str, Any], record: dict[str, Any]
     backend = str(((record.get("metrics") or {}) if isinstance(record.get("metrics"), dict) else {}).get("backend") or "")
     if backend not in {"transformers", "lora", "qlora"}:
         blockers.append("unsupported_real_training_backend")
+    evidence = record.get("training_runtime_evidence") if isinstance(record.get("training_runtime_evidence"), dict) else {}
+    if not evidence:
+        blockers.append("missing_training_runtime_evidence")
+    else:
+        if evidence.get("requested_real_training") is not True:
+            blockers.append("runtime_evidence:not_real_training_request")
+        if evidence.get("real_training_executed") is not True:
+            blockers.append("runtime_evidence:real_training_not_executed")
+        if evidence.get("fallback_used"):
+            blockers.append("runtime_evidence:fallback_used")
+        if str(evidence.get("actual_backend") or "") != backend:
+            blockers.append("runtime_evidence:backend_mismatch")
+        if evidence.get("requires_gpu"):
+            if evidence.get("profile_has_gpu") is not True:
+                blockers.append("runtime_evidence:node_gpu_missing")
+            if evidence.get("torch_cuda_available") is not True:
+                blockers.append("runtime_evidence:cuda_missing")
+            if evidence.get("gpu_execution_evidence") is not True:
+                blockers.append("runtime_evidence:gpu_execution_unproven")
     backend_ref = str(binding.get("backend_ref") or binding.get("checkpoint_uri") or "")
     path = to_local_path(backend_ref)
     if path is None:
@@ -174,6 +193,7 @@ def _compact_model(model: dict[str, Any] | None) -> dict[str, Any]:
         "dataset_path": model.get("dataset_path") or model.get("dataset_uri") or model.get("data_path"),
         "kind": model.get("kind"),
         "backend": ((model.get("metrics") or {}) if isinstance(model.get("metrics"), dict) else {}).get("backend"),
+        "runtime_evidence": _compact_runtime_evidence(model.get("training_runtime_evidence") if isinstance(model.get("training_runtime_evidence"), dict) else None),
     }
 
 
@@ -182,3 +202,23 @@ def _float(value: Any) -> float | None:
         return float(value)
     except Exception:
         return None
+
+
+def _compact_runtime_evidence(evidence: dict[str, Any] | None) -> dict[str, Any]:
+    if not evidence:
+        return {"ok": False}
+    keys = [
+        "requested_real_training",
+        "requested_backend",
+        "requires_gpu",
+        "actual_backend",
+        "real_training_executed",
+        "fallback_used",
+        "profile_has_gpu",
+        "torch_cuda_available",
+        "cuda_device_count",
+        "gpu_execution_evidence",
+        "trained_rows",
+        "duration_seconds",
+    ]
+    return {"ok": True, **{key: evidence.get(key) for key in keys}}

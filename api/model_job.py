@@ -15,6 +15,7 @@ class ModelJobError(RuntimeError):
 
 
 def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: str) -> dict[str, Any]:
+    started_at = time()
     name = payload.get("name") or payload.get("model_id") or "ailovanta-code"
     version = payload.get("version") or "local-v0"
     out_dir = Path(payload.get("output_dir") or f"runtime_data/models/{name}-{version}")
@@ -44,6 +45,8 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "score": result["score"],
         "created_at": time(),
     }
+    if isinstance(result.get("training_metrics"), dict):
+        metrics["training"] = result["training_metrics"]
     record = {
         "schema": "ailovanta.model_output.v1",
         "name": name,
@@ -56,6 +59,14 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "location": str(out_dir),
         "metrics": metrics,
         "backend_message": result["message"],
+        "training_request": _compact_training_request(payload),
+        "training_runtime_evidence": _training_runtime_evidence(
+            payload=payload,
+            profile=profile,
+            result=result,
+            started_at=started_at,
+            finished_at=metrics["created_at"],
+        ),
     }
     if preflight is not None:
         record["real_training_preflight"] = preflight
@@ -70,6 +81,7 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "metrics": metrics,
         "status": status,
         "notes": result["message"],
+        "training_runtime_evidence": record["training_runtime_evidence"],
     }
 
 
@@ -174,10 +186,17 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
             report_to=[],
         )
         trainer = Trainer(model=model, args=args, train_dataset=tokenized)
-        trainer.train()
+        train_result = trainer.train()
         trainer.save_model(str(out_dir))
         tokenizer.save_pretrained(str(out_dir))
-        return {"backend": backend, "kind": kind, "score": 0.82 if kind == "adapter" else 0.78, "message": f"local {backend} run finished"}
+        return {
+            "backend": backend,
+            "kind": kind,
+            "score": 0.82 if kind == "adapter" else 0.78,
+            "message": f"local {backend} run finished",
+            "training_metrics": getattr(train_result, "metrics", {}) or {},
+            "trained_rows": len(rows),
+        }
     except Exception as exc:
         if not allow_fallback:
             return _training_failed("transformers_training_failed", f"real Transformers training failed: {type(exc).__name__}: {exc}")
@@ -188,6 +207,93 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
 
 def _training_failed(reason: str, message: str) -> dict[str, Any]:
     return {"ok": False, "backend": reason, "kind": "training_failed", "score": 0.0, "message": message}
+
+
+def _compact_training_request(payload: dict[str, Any]) -> dict[str, Any]:
+    keys = [
+        "kind",
+        "name",
+        "dataset_uri",
+        "data_path",
+        "base_model",
+        "max_steps",
+        "steps",
+        "real",
+        "use_transformers",
+        "peft",
+        "lora",
+        "qlora",
+        "requires_gpu",
+        "allow_lightweight_fallback",
+        "batch_size",
+        "gradient_accumulation_steps",
+        "learning_rate",
+        "max_length",
+        "target_modules",
+    ]
+    return {key: payload.get(key) for key in keys if key in payload}
+
+
+def _training_runtime_evidence(
+    *,
+    payload: dict[str, Any],
+    profile: dict[str, Any],
+    result: dict[str, Any],
+    started_at: float,
+    finished_at: float,
+) -> dict[str, Any]:
+    requested_real = bool(payload.get("real") or payload.get("use_transformers") or payload.get("peft") or payload.get("qlora"))
+    actual_backend = str(result.get("backend") or "")
+    real_backends = {"transformers", "lora", "qlora"}
+    cuda = _torch_cuda_evidence()
+    real_executed = actual_backend in real_backends and result.get("ok") is not False
+    fallback_used = requested_real and actual_backend not in real_backends and result.get("ok") is not False
+    return {
+        "schema_version": "ailovanta.training_runtime_evidence.v1",
+        "requested_real_training": requested_real,
+        "requested_backend": _requested_backend(payload),
+        "requires_gpu": bool(payload.get("requires_gpu")),
+        "allow_lightweight_fallback": bool(payload.get("allow_lightweight_fallback", True)),
+        "actual_backend": actual_backend,
+        "artifact_kind": result.get("kind"),
+        "real_training_executed": real_executed,
+        "fallback_used": fallback_used,
+        "profile_has_gpu": bool(profile.get("has_gpu")),
+        "profile_gpu_name": profile.get("gpu_name"),
+        "torch_cuda_available": bool(cuda.get("available")),
+        "cuda_device_count": cuda.get("device_count"),
+        "cuda_devices": cuda.get("devices"),
+        "gpu_execution_evidence": bool(real_executed and payload.get("requires_gpu") and profile.get("has_gpu") and cuda.get("available")),
+        "trained_rows": result.get("trained_rows"),
+        "started_at": round(started_at, 3),
+        "finished_at": round(finished_at, 3),
+        "duration_seconds": round(max(0.0, finished_at - started_at), 3),
+    }
+
+
+def _requested_backend(payload: dict[str, Any]) -> str:
+    if payload.get("qlora"):
+        return "qlora"
+    if payload.get("peft") or payload.get("lora"):
+        return "lora"
+    if payload.get("real") or payload.get("use_transformers"):
+        return "transformers"
+    return "portable"
+
+
+def _torch_cuda_evidence() -> dict[str, Any]:
+    try:
+        import torch  # type: ignore
+
+        available = bool(torch.cuda.is_available())
+        count = int(torch.cuda.device_count()) if available else 0
+        return {
+            "available": available,
+            "device_count": count,
+            "devices": [torch.cuda.get_device_name(index) for index in range(count)] if available else [],
+        }
+    except Exception as exc:
+        return {"available": False, "device_count": 0, "devices": [], "error": type(exc).__name__ + ": " + str(exc)}
 
 
 def _read_rows(path: Path, max_rows: int) -> list[dict[str, str]]:
