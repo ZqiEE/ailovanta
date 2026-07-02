@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -8,7 +9,7 @@ from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
 
-app = FastAPI(title="Ailovanta Worker", version="0.2.3")
+app = FastAPI(title="Ailovanta Worker", version="0.2.4")
 
 
 class InferRequest(BaseModel):
@@ -35,6 +36,15 @@ def ref_path(value: str | None) -> Path | None:
     return None
 
 
+def read_checkpoint(path: Path | None) -> dict:
+    if not path or not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True, "service": "ailovanta-worker"}
@@ -48,6 +58,7 @@ def infer(body: InferRequest) -> dict:
     backend_ref = binding.get("backend_ref") if binding else None
     path = ref_path(backend_ref)
     path_ready = bool(path and path.exists())
+    checkpoint = read_checkpoint(path)
     return {
         "answer": "Ailovanta worker routed request for " + model_key,
         "source": "ailovanta-worker",
@@ -63,4 +74,7 @@ def infer(body: InferRequest) -> dict:
         "backend_ref": backend_ref,
         "artifact_path_ready": path_ready,
         "artifact_path": str(path) if path else None,
+        "checkpoint_backend": checkpoint.get("backend"),
+        "checkpoint_model_dir": checkpoint.get("model_dir"),
+        "checkpoint_base_model": checkpoint.get("base_model"),
     }
