@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
 
-app = FastAPI(title="Ailovanta Worker", version="0.2.1")
+app = FastAPI(title="Ailovanta Worker", version="0.2.2")
 
 
 class InferRequest(BaseModel):
@@ -27,6 +27,8 @@ def health() -> dict:
 def infer(body: InferRequest) -> dict:
     model_key = body.model_id + ":" + body.version
     binding = ArtifactBindingStore().latest_for_model(model_key, active_only=True)
+    backend_kind = binding.get("backend_kind") if binding else None
+    backend_ref = binding.get("backend_ref") if binding else None
     return {
         "answer": "Ailovanta worker routed request for " + model_key,
         "source": "ailovanta-worker",
@@ -38,4 +40,6 @@ def infer(body: InferRequest) -> dict:
         "policy_mode": body.policy_mode,
         "artifact_binding_found": binding is not None,
         "binding_id": binding.get("binding_id") if binding else None,
+        "backend_kind": backend_kind,
+        "backend_ref": backend_ref,
     }
