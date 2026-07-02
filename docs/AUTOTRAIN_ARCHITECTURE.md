@@ -1,24 +1,50 @@
 # AutoTrain Architecture
 
-Ailovanta AutoTrain turns authorized data into distributed training jobs and runtime-ready model candidates.
+Ailovanta AutoTrain turns authorized public learning events into runtime-ready model candidates.
 
 ## Responsibilities
 
 AutoTrain is responsible for:
 
 ```text
-discover trainable data
--> check Rights Proof Registry
--> build dataset pack
--> create training job
--> split tasks
--> assign distributed nodes
--> collect worker results
--> validate outputs
--> aggregate candidate updates
--> create candidate model version
+discover trainable events
+-> build training pack
+-> create foundation job
+-> call ailovanta-core training/eval
+-> finalize artifact metadata
+-> verify artifact digest
 -> pass promotion gate
--> publish runtime manifest
+-> import candidate into owned runtime
+-> prepare warm runtime route
+```
+
+## Current entrypoints
+
+AutoTrain is now mounted in the release-ready app:
+
+```text
+POST /learning/events       # collect public learning event rows
+POST /autotrain/pack        # build/reuse an AutoTrain pack from events
+POST /autotrain/run         # run event -> pack -> guarded learning -> runtime import
+GET  /autotrain/status      # inspect AutoTrain readiness
+```
+
+CLI:
+
+```bash
+python scripts/autotrain.py --core-path ../ailovanta-core --execute-checkpoints
+```
+
+For a real backend run, pass a core path plus backend settings:
+
+```bash
+python scripts/autotrain.py \
+  --core-path ../ailovanta-core \
+  --model-backend local \
+  --base-model qwen2.5:3b \
+  --backend-device cuda \
+  --backend-max-steps 100 \
+  --execute-checkpoints
 ```
 
 ## Required default
@@ -43,3 +69,7 @@ Local execution is allowed only as a controlled distributed simulation. The publ
 ## Promotion
 
 A model candidate can become runtime-visible only after validation and promotion gate checks pass. Failing candidates remain audit records and must not be presented as active production models.
+
+## Boundary
+
+This is an automatic training loop, not a claim that a GPT-scale model is already trained. Real improvement requires real learning events, `ailovanta-core`, a configured training backend, and usable checkpoint artifacts.
