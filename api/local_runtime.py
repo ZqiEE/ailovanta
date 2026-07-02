@@ -19,7 +19,7 @@ class LocalRuntime:
         record = {"model_key": model_key, "location": str(path), "source_location": location, "backend": "metadata", "ready": path.exists(), "resolved": resolved}
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline  # type: ignore
-            if path.exists() and any((path / item).exists() for item in ["config.json", "adapter_config.json"]):
+            if path.exists() and path.is_dir() and any((path / item).exists() for item in ["config.json", "adapter_config.json"]):
                 tokenizer = AutoTokenizer.from_pretrained(str(path))
                 model = AutoModelForCausalLM.from_pretrained(str(path))
                 record["pipe"] = pipeline("text-generation", model=model, tokenizer=tokenizer)
@@ -38,16 +38,16 @@ class LocalRuntime:
             bucket, key = bucket_key.split("/", 1)
             target = cache_root / Path(key).name
             obj = get_object(key, str(target), bucket)
-            return {"kind": "s3", "path": obj["output_path"], "object": obj}
+            return self._resolve_model_dir({"kind": "s3", "path": obj["output_path"], "object": obj})
         if location.startswith("ipfs://"):
             item = fetch_content_uri(location, str(cache_root))
-            return {"kind": "content_gateway", "path": item.get("extracted_to") or item["path"], "artifact": item}
+            return self._resolve_model_dir({"kind": "content_gateway", "path": item.get("extracted_to") or item["path"], "artifact": item})
         if location.startswith(("http://", "https://")):
             item = fetch_artifact(location, str(cache_root), extract=True)
-            return {"kind": "http", "path": item.get("extracted_to") or item["path"], "artifact": item}
+            return self._resolve_model_dir({"kind": "http", "path": item.get("extracted_to") or item["path"], "artifact": item})
         if location.startswith("file://"):
-            return {"kind": "file_uri", "path": location.removeprefix("file://")}
-        return {"kind": "local", "path": location}
+            return self._resolve_model_dir({"kind": "file_uri", "path": location.removeprefix("file://")})
+        return self._resolve_model_dir({"kind": "local", "path": location})
 
     def generate(self, model_key: str, prompt: str, max_new_tokens: int = 128) -> dict[str, Any]:
         record = self.loaded.get(model_key)
@@ -65,8 +65,26 @@ class LocalRuntime:
         return [self.public(item) for item in self.loaded.values()]
 
     @staticmethod
+    def _resolve_model_dir(resolved: dict[str, Any]) -> dict[str, Any]:
+        path = Path(str(resolved.get("path") or ""))
+        if path.is_file():
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                payload = {}
+            model_dir = payload.get("model_dir")
+            if model_dir and Path(str(model_dir)).exists():
+                return {**resolved, "checkpoint_path": str(path), "path": str(Path(str(model_dir)).resolve()), "model_dir_from_checkpoint": True}
+        return resolved
+
+    @staticmethod
     def read_metadata(location: str) -> dict[str, Any]:
         path = Path(location)
+        if path.is_file():
+            try:
+                return json.loads(path.read_text(encoding="utf-8"))
+            except Exception:
+                return {}
         for name in ["output.json", "artifact.json", "merged.json", "metadata.json"]:
             item = path / name
             if item.exists():
