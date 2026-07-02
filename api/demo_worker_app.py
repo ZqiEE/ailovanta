@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-app = FastAPI(title="Ailovanta Demo Worker", version="0.1.0")
+app = FastAPI(title="Ailovanta Worker", version="0.2.0")
 
 
 class InferRequest(BaseModel):
@@ -18,15 +18,16 @@ class InferRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "ailovanta-demo-worker"}
+    return {"ok": True, "service": "ailovanta-worker"}
 
 
 @app.post("/v1/owned/infer")
 def infer(body: InferRequest) -> dict:
-    text = "Ailovanta worker response from " + body.runtime_id + " using " + body.model_id + ":" + body.version
+    model_key = body.model_id + ":" + body.version
+    text = "Ailovanta worker accepted owned runtime request for " + model_key
     return {
         "answer": text + ". Prompt received: " + body.prompt,
-        "source": "ailovanta-demo-worker",
+        "source": "ailovanta-worker",
         "model_id": body.model_id,
         "version": body.version,
         "runtime_id": body.runtime_id,
