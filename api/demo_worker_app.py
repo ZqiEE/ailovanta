@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
 
-app = FastAPI(title="Ailovanta Worker", version="0.3.0")
+app = FastAPI(title="Ailovanta Worker", version="0.3.1")
 
 _loaded: dict[str, dict] = {}
 
@@ -46,6 +46,16 @@ def read_checkpoint(path: Path | None) -> dict:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return {}
+
+
+def resolve_model_dir(checkpoint: dict, checkpoint_path: Path | None) -> str | None:
+    raw = checkpoint.get("model_dir")
+    if not raw:
+        return None
+    model_path = Path(str(raw))
+    if not model_path.is_absolute() and checkpoint_path is not None:
+        model_path = checkpoint_path.parent / model_path
+    return str(model_path.resolve())
 
 
 def looks_loadable(path: Path) -> bool:
@@ -99,7 +109,8 @@ def infer(body: InferRequest) -> dict:
     path = ref_path(backend_ref)
     path_ready = bool(path and path.exists())
     checkpoint = read_checkpoint(path)
-    gen = generate_local(checkpoint.get("model_dir"), body.prompt, body.max_new_tokens)
+    model_dir = resolve_model_dir(checkpoint, path)
+    gen = generate_local(model_dir, body.prompt, body.max_new_tokens)
     answer = gen.get("answer") if gen.get("ok") else "Ailovanta worker routed request for " + model_key
     return {
         "answer": answer,
@@ -117,7 +128,7 @@ def infer(body: InferRequest) -> dict:
         "artifact_path_ready": path_ready,
         "artifact_path": str(path) if path else None,
         "checkpoint_backend": checkpoint.get("backend"),
-        "checkpoint_model_dir": checkpoint.get("model_dir"),
+        "checkpoint_model_dir": model_dir,
         "checkpoint_base_model": checkpoint.get("base_model"),
         "generation": gen,
     }
