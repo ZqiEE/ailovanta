@@ -9,7 +9,9 @@ from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
 
-app = FastAPI(title="Ailovanta Worker", version="0.2.4")
+app = FastAPI(title="Ailovanta Worker", version="0.3.0")
+
+_loaded: dict[str, dict] = {}
 
 
 class InferRequest(BaseModel):
@@ -20,6 +22,7 @@ class InferRequest(BaseModel):
     runtime_id: str
     node_id: str
     model_manifest_hash: str
+    max_new_tokens: int = 128
 
 
 def ref_path(value: str | None) -> Path | None:
@@ -45,6 +48,43 @@ def read_checkpoint(path: Path | None) -> dict:
         return {}
 
 
+def looks_loadable(path: Path) -> bool:
+    return path.is_dir() and (path / "config.json").exists()
+
+
+def generate_local(model_dir: str | None, prompt: str, max_new_tokens: int) -> dict:
+    if not model_dir:
+        return {"ok": False, "reason": "missing_model_dir"}
+    path = Path(model_dir)
+    if not looks_loadable(path):
+        return {"ok": False, "reason": "model_dir_not_loadable", "model_dir": str(path)}
+    key = str(path.resolve())
+    try:
+        if key not in _loaded:
+            from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
+            import torch  # type: ignore
+
+            tokenizer = AutoTokenizer.from_pretrained(key)
+            model = AutoModelForCausalLM.from_pretrained(key)
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            model.to(device)
+            model.eval()
+            _loaded[key] = {"model": model, "tokenizer": tokenizer, "device": device, "torch": torch}
+        loaded = _loaded[key]
+        tokenizer = loaded["tokenizer"]
+        model = loaded["model"]
+        device = loaded["device"]
+        torch = loaded["torch"]
+        inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=2048)
+        inputs = {name: value.to(device) for name, value in inputs.items()}
+        with torch.no_grad():
+            out = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False, pad_token_id=getattr(tokenizer, "eos_token_id", None))
+        text = tokenizer.decode(out[0], skip_special_tokens=True)
+        return {"ok": True, "answer": text, "backend": "transformers-local", "model_dir": key, "device": device}
+    except Exception as exc:
+        return {"ok": False, "reason": "local_generation_failed", "error": str(exc), "model_dir": key}
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True, "service": "ailovanta-worker"}
@@ -59,9 +99,11 @@ def infer(body: InferRequest) -> dict:
     path = ref_path(backend_ref)
     path_ready = bool(path and path.exists())
     checkpoint = read_checkpoint(path)
+    gen = generate_local(checkpoint.get("model_dir"), body.prompt, body.max_new_tokens)
+    answer = gen.get("answer") if gen.get("ok") else "Ailovanta worker routed request for " + model_key
     return {
-        "answer": "Ailovanta worker routed request for " + model_key,
-        "source": "ailovanta-worker",
+        "answer": answer,
+        "source": gen.get("backend") if gen.get("ok") else "ailovanta-worker",
         "model_id": body.model_id,
         "version": body.version,
         "runtime_id": body.runtime_id,
@@ -77,4 +119,5 @@ def infer(body: InferRequest) -> dict:
         "checkpoint_backend": checkpoint.get("backend"),
         "checkpoint_model_dir": checkpoint.get("model_dir"),
         "checkpoint_base_model": checkpoint.get("base_model"),
+        "generation": gen,
     }
