@@ -37,7 +37,10 @@ class WorkerInferenceClient:
         self.timeout_seconds = timeout_seconds or float(os.getenv("AILOVANTA_WORKER_TIMEOUT_SECONDS", "60"))
 
     def infer(self, request: WorkerInferenceRequest) -> WorkerInferenceResult:
-        worker_url = self.worker_url(request.runtime_id)
+        try:
+            worker_url = self.worker_url(request.runtime_id)
+        except WorkerInferenceUnavailable:
+            return self.infer_local_artifact(request)
         payload = {
             "prompt": request.prompt,
             "model_id": request.model_id,
@@ -65,6 +68,35 @@ class WorkerInferenceClient:
             runtime_id=request.runtime_id,
             node_id=request.node_id,
             raw=data,
+        )
+
+    def infer_local_artifact(self, request: WorkerInferenceRequest) -> WorkerInferenceResult:
+        if os.getenv("AILOVANTA_DISABLE_LOCAL_ARTIFACT_WORKER", "").lower() in {"1", "true", "yes"}:
+            raise WorkerInferenceUnavailable(f"worker url not configured for runtime: {request.runtime_id}")
+        from api.artifact_binding import ArtifactBindingStore
+        from api.local_runtime import LocalRuntime
+
+        model_key = f"{request.model_id}:{request.version}"
+        binding = ArtifactBindingStore().latest_for_model(model_key, active_only=True)
+        if not binding:
+            raise WorkerInferenceUnavailable("no active artifact binding for " + model_key)
+        location = str(binding.get("backend_ref") or binding.get("checkpoint_uri") or "")
+        if not location:
+            raise WorkerInferenceUnavailable("artifact binding has no backend_ref or checkpoint_uri")
+        runtime = LocalRuntime()
+        loaded = runtime.load(model_key, location)
+        generated = runtime.generate(model_key, request.prompt, max_new_tokens=int(os.getenv("AILOVANTA_LOCAL_WORKER_MAX_NEW_TOKENS", "128")))
+        answer = str(generated.get("text") or generated.get("answer") or "").strip()
+        if not answer:
+            raise WorkerInferenceUnavailable("local artifact runtime returned empty answer")
+        raw = {"binding": binding, "loaded": loaded, "generated": generated, "local_artifact_worker": True}
+        return WorkerInferenceResult(
+            answer=answer,
+            source="ailovanta-local-artifact-worker",
+            worker_url="local-artifact://" + request.runtime_id,
+            runtime_id=request.runtime_id,
+            node_id=request.node_id,
+            raw=raw,
         )
 
     @staticmethod
