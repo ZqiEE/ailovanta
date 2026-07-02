@@ -9,7 +9,7 @@ from api.autotruth_store import AutoTruthEventStore
 def test_build_pack_from_events_creates_sft_rows() -> None:
     pack = build_pack_from_events(
         [
-            {"event_id": "evt_1", "input": "write a function", "output": "def fn():\n    return 1", "behavior": {"score": 0.8}},
+            {"event_id": "evt_1", "input": "write a function", "output": "def fn(): return 1", "behavior": {"score": 0.8}},
             {"event_id": "evt_2", "input": "", "output": "ignored"},
         ],
         model_id="ailovanta-owned",
