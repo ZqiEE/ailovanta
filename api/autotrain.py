@@ -149,7 +149,6 @@ def run_autotrain(
         runtime_gpu_memory_gb=gpu_memory_gb,
         model_id=model_id,
         target_version=target_version,
-        node_id=node_id,
         gpu_memory_gb=gpu_memory_gb,
         max_steps=max_steps,
     )
