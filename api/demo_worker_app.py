@@ -3,7 +3,9 @@ from __future__ import annotations
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-app = FastAPI(title="Ailovanta Worker", version="0.2.0")
+from api.artifact_binding import ArtifactBindingStore
+
+app = FastAPI(title="Ailovanta Worker", version="0.2.1")
 
 
 class InferRequest(BaseModel):
@@ -24,9 +26,9 @@ def health() -> dict:
 @app.post("/v1/owned/infer")
 def infer(body: InferRequest) -> dict:
     model_key = body.model_id + ":" + body.version
-    text = "Ailovanta worker accepted owned runtime request for " + model_key
+    binding = ArtifactBindingStore().latest_for_model(model_key, active_only=True)
     return {
-        "answer": text + ". Prompt received: " + body.prompt,
+        "answer": "Ailovanta worker routed request for " + model_key,
         "source": "ailovanta-worker",
         "model_id": body.model_id,
         "version": body.version,
@@ -34,4 +36,6 @@ def infer(body: InferRequest) -> dict:
         "node_id": body.node_id,
         "model_manifest_hash": body.model_manifest_hash,
         "policy_mode": body.policy_mode,
+        "artifact_binding_found": binding is not None,
+        "binding_id": binding.get("binding_id") if binding else None,
     }
