@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from api.artifact_binding_api import router as artifact_binding_router
+from api.artifact_placement_api import router as artifact_placement_router
 from api.artifact_shards_api import router as artifact_shards_router
 from api.autotrain_api import router as autotrain_router
 from api.core_result_api import router as core_result_router
@@ -17,6 +18,7 @@ from api.learning_gate_api import router as learning_gate_router
 from api.main_incident_ready import app
 from api.model_monitor_api import router as model_monitor_router
 from api.model_score_api import router as model_score_router
+from api.production_autotrain_api import router as production_autotrain_router
 from api.result_guard_routes import router as result_guard_router
 
 app.include_router(final_gate_router)
@@ -31,8 +33,10 @@ app.include_router(learning_router)
 app.include_router(learning_foundation_router)
 app.include_router(learning_gate_router)
 app.include_router(autotrain_router)
+app.include_router(production_autotrain_router)
 app.include_router(lan_node_router)
 app.include_router(artifact_shards_router)
+app.include_router(artifact_placement_router)
 app.include_router(artifact_binding_router)
 app.include_router(model_score_router)
 app.include_router(model_monitor_router)
