@@ -62,6 +62,50 @@ def test_corpus_to_training_dataset(tmp_path: Path) -> None:
     assert result["selected_tags"]["algorithmic_core"] == 1
 
 
+def test_corpus_to_training_dataset_deduplicates_duplicate_content(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus.jsonl"
+    corpus.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "training_record_kind": "code",
+                        "text": "def fib(n):\n    return n if n < 2 else fib(n - 1) + fib(n - 2)\n",
+                        "path": "algorithms/fib.py",
+                        "source_name": "repo-a",
+                        "rights_id": "rights_1",
+                        "curriculum_tags": ["algorithmic_core"],
+                        "priority_score": 220,
+                        "priority_tier": "high",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "training_record_kind": "code",
+                        "text": "def fib(n): return n if n < 2 else fib(n - 1) + fib(n - 2)",
+                        "path": "examples/fib.py",
+                        "source_name": "repo-b",
+                        "rights_id": "rights_2",
+                        "curriculum_tags": ["syntax_foundation"],
+                        "priority_score": 40,
+                        "priority_tier": "baseline",
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = corpus_to_training_dataset(corpus, tmp_path / "train.jsonl", max_records=5)
+    lines = (tmp_path / "train.jsonl").read_text(encoding="utf-8").strip().splitlines()
+
+    assert result["records"] == 1
+    assert result["duplicates_skipped"] == 1
+    assert len(lines) == 1
+    assert "algorithms/fib.py" in lines[0]
+
+
 def test_autonomous_source_training_cycle_queues_job(monkeypatch, tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     docs = repo / "docs"
@@ -155,6 +199,46 @@ def test_limit_sources_prefers_high_discovery_score(tmp_path: Path) -> None:
     limited = limit_sources(source_path, tmp_path / "limited.json", max_sources=1, ledger_path=tmp_path / "ledger.json")
     payload = json.loads(Path(limited["output"]).read_text(encoding="utf-8"))
     assert payload["sources"][0]["name"] == "high"
+
+
+def test_limit_sources_prefers_higher_training_value_score(tmp_path: Path) -> None:
+    from api.autonomous_source_training import limit_sources
+
+    source_path = tmp_path / "sources.json"
+    source_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "ailovanta.github_code_sources.v1",
+                "sources": [
+                    {
+                        "name": "popular-noisy",
+                        "path": str(tmp_path / "repo-a"),
+                        "enabled": True,
+                        "discovery_score": 95,
+                        "commercial_use_allowed": False,
+                        "distillation_allowed": False,
+                    },
+                    {
+                        "name": "compiler-kit",
+                        "path": str(tmp_path / "repo-b"),
+                        "enabled": True,
+                        "discovery_score": 70,
+                        "language": "Python",
+                        "license_hint": "MIT",
+                        "commercial_use_allowed": True,
+                        "distillation_allowed": True,
+                        "topics": ["compiler", "testing"],
+                        "stars": 800,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    limited = limit_sources(source_path, tmp_path / "limited.json", max_sources=1, ledger_path=tmp_path / "ledger.json")
+    payload = json.loads(Path(limited["output"]).read_text(encoding="utf-8"))
+    assert payload["sources"][0]["name"] == "compiler-kit"
 
 
 def test_autonomous_source_training_cycle_skips_when_no_new_sources(monkeypatch, tmp_path: Path) -> None:

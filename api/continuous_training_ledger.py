@@ -35,16 +35,24 @@ def select_sources_for_training(
     corpus_mode: str,
 ) -> dict[str, Any]:
     sources = [item for item in sources_payload.get("sources", []) if item.get("enabled", True)]
-    sources.sort(key=lambda item: float(item.get("discovery_score") or 0), reverse=True)
+    sources.sort(key=_source_sort_key, reverse=True)
     selected: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
     for source in sources:
         fingerprint = source_fingerprint(source, corpus_mode=corpus_mode)
         status = source_training_status(ledger, fingerprint)
+        selection_score = source_selection_score(source)
         if status in ACTIVE_STATUSES or status in COMPLETED_STATUSES:
-            skipped.append({"name": source.get("name"), "fingerprint": fingerprint, "status": status})
+            skipped.append(
+                {
+                    "name": source.get("name"),
+                    "fingerprint": fingerprint,
+                    "status": status,
+                    "selection_score": selection_score,
+                }
+            )
             continue
-        selected.append({**source, "training_fingerprint": fingerprint})
+        selected.append({**source, "training_fingerprint": fingerprint, "selection_score": selection_score})
         if len(selected) >= max_sources:
             break
     return {"selected": selected, "skipped": skipped, "available": len(sources)}
@@ -96,6 +104,7 @@ def record_training_batch(
     ledger.setdefault("datasets", {})[dataset_hash] = {"dataset_hash": dataset_hash, "batch_id": batch_id, "job_id": job_id, "status": batch["status"], "updated_at": now}
     for source in selected_sources:
         fingerprint = source.get("training_fingerprint") or source_fingerprint(source, corpus_mode=corpus_mode)
+        ingest_result = _match_ingest_result(source, ingest)
         ledger.setdefault("sources", {})[fingerprint] = {
             "fingerprint": fingerprint,
             "source_key": source_key(source),
@@ -106,6 +115,11 @@ def record_training_batch(
             "batch_id": batch_id,
             "job_id": job_id,
             "status": batch["status"],
+            "discovery_score": float(source.get("discovery_score") or 0),
+            "selection_score": float(source.get("selection_score") or source_selection_score(source)),
+            "curriculum_summary": ingest_result.get("curriculum_summary") if ingest_result else None,
+            "code_records": ingest_result.get("code_records") if ingest_result else None,
+            "instruction_records": ingest_result.get("instruction_records") if ingest_result else None,
             "updated_at": now,
         }
     return save_ledger(ledger_path, ledger)
@@ -195,3 +209,67 @@ def file_sha256(path: str | Path) -> str:
 
 def stable_id(prefix: str, value: str) -> str:
     return prefix + hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
+
+
+def source_selection_score(source: dict[str, Any]) -> float:
+    score = float(source.get("discovery_score") or 0)
+    stars = float(source.get("stars") or source.get("stargazers_count") or 0)
+    forks = float(source.get("forks") or source.get("forks_count") or 0)
+    if stars > 0:
+        score += min(35, 8 + (stars ** 0.5) / 2)
+    if forks > 0:
+        score += min(12, 4 + (forks ** 0.5) / 3)
+    if source.get("language"):
+        score += 10
+    license_hint = str(source.get("license_hint") or source.get("license_name") or "").lower()
+    if license_hint and license_hint != "unknown":
+        score += 8
+    if source.get("commercial_use_allowed"):
+        score += 12
+    if source.get("distillation_allowed"):
+        score += 10
+    topics = [str(item).lower() for item in source.get("topics", []) or []]
+    for token in topics:
+        if any(term in token for term in {"compiler", "interpreter", "parser", "testing", "algorithm", "sdk", "framework", "distributed"}):
+            score += 6
+    query = str(source.get("discovered_by_query") or "").lower()
+    if "language:" in query:
+        score += 6
+    if "topic:" in query:
+        score += 4
+    name_blob = " ".join(
+        [
+            str(source.get("name") or ""),
+            str(source.get("html_url") or ""),
+            str(source.get("url") or ""),
+        ]
+    ).lower()
+    if any(term in name_blob for term in {"test", "spec", "algorithm", "compiler", "parser", "stdlib", "sdk"}):
+        score += 5
+    if source.get("archived") or source.get("disabled"):
+        score -= 100
+    if source.get("fork"):
+        score -= 10
+    return round(score, 3)
+
+
+def _source_sort_key(source: dict[str, Any]) -> tuple[float, float, str]:
+    return (
+        source_selection_score(source),
+        float(source.get("discovery_score") or 0),
+        str(source.get("name") or ""),
+    )
+
+
+def _match_ingest_result(source: dict[str, Any], ingest: dict[str, Any]) -> dict[str, Any] | None:
+    source_url = str(source.get("url") or source.get("path") or "")
+    source_name = str(source.get("name") or "")
+    for item in ingest.get("results", []) or []:
+        result_source = item.get("source") if isinstance(item.get("source"), dict) else {}
+        result_name = str(result_source.get("name") or item.get("source_name") or "")
+        result_url = str(result_source.get("url") or result_source.get("path") or item.get("path") or "")
+        if source_name and result_name and source_name == result_name:
+            return item
+        if source_url and result_url and source_url == result_url:
+            return item
+    return None

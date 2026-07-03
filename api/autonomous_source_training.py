@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 import urllib.request
@@ -203,7 +204,8 @@ def corpus_to_training_dataset(corpus_path: str | Path, output_path: str | Path,
     output.parent.mkdir(parents=True, exist_ok=True)
     records = 0
     bytes_written = 0
-    selected = _select_training_records(corpus_path, max_records=max_records)
+    selection = _select_training_records(corpus_path, max_records=max_records)
+    selected = selection["records"]
     with output.open("w", encoding="utf-8") as target:
         for item in selected:
             text = training_text_from_record(item)
@@ -223,7 +225,14 @@ def corpus_to_training_dataset(corpus_path: str | Path, output_path: str | Path,
             target.write(encoded + "\n")
             records += 1
             bytes_written += len(encoded.encode("utf-8", errors="ignore"))
-    return {"ok": records > 0, "output": str(output), "records": records, "bytes": bytes_written, "selected_tags": _selected_tag_counts(selected)}
+    return {
+        "ok": records > 0,
+        "output": str(output),
+        "records": records,
+        "bytes": bytes_written,
+        "selected_tags": _selected_tag_counts(selected),
+        "duplicates_skipped": selection["duplicates_skipped"],
+    }
 
 
 def training_text_from_record(item: dict[str, Any]) -> str:
@@ -245,8 +254,9 @@ def compact_ingest(ingest: dict[str, Any]) -> dict[str, Any]:
     return {key: ingest.get(key) for key in keys}
 
 
-def _select_training_records(corpus_path: str | Path, *, max_records: int) -> list[dict[str, Any]]:
+def _select_training_records(corpus_path: str | Path, *, max_records: int) -> dict[str, Any]:
     ranked: list[tuple[int, int, dict[str, Any]]] = []
+    duplicates_skipped = 0
     with Path(corpus_path).open("r", encoding="utf-8") as source:
         for index, line in enumerate(source):
             if not line.strip():
@@ -254,7 +264,18 @@ def _select_training_records(corpus_path: str | Path, *, max_records: int) -> li
             item = json.loads(line)
             ranked.append((_record_priority(item), -index, item))
     ranked.sort(reverse=True)
-    return [item for _score, _neg_index, item in ranked[:max_records]]
+    selected: list[dict[str, Any]] = []
+    seen_fingerprints: set[str] = set()
+    for _score, _neg_index, item in ranked:
+        fingerprint = _training_record_fingerprint(item)
+        if fingerprint in seen_fingerprints:
+            duplicates_skipped += 1
+            continue
+        seen_fingerprints.add(fingerprint)
+        selected.append(dict(item))
+        if len(selected) >= max_records:
+            break
+    return {"records": selected, "duplicates_skipped": duplicates_skipped}
 
 
 def _record_priority(item: dict[str, Any]) -> int:
@@ -280,3 +301,18 @@ def _selected_tag_counts(items: list[dict[str, Any]]) -> dict[str, int]:
             key = str(tag)
             counts[key] = counts.get(key, 0) + 1
     return counts
+
+
+def _training_record_fingerprint(item: dict[str, Any]) -> str:
+    text = training_text_from_record(item)
+    normalized = " ".join(text.split())
+    record_kind = str(item.get("training_record_kind") or "")
+    payload = json.dumps(
+        {
+            "record_kind": record_kind,
+            "text": normalized,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()

@@ -5,6 +5,7 @@ from api.continuous_training_ledger import (
     load_ledger,
     record_training_batch,
     select_sources_for_training,
+    source_selection_score,
     source_fingerprint,
     sync_ledger_with_jobs,
 )
@@ -44,11 +45,26 @@ def test_record_training_batch_and_sync_status(tmp_path: Path) -> None:
         dataset_path=dataset,
         dataset={"records": 1, "bytes": dataset.stat().st_size},
         job={"job": {"id": "train_1", "status": "queued"}},
-        ingest={"ok": True, "records": 1, "bytes": dataset.stat().st_size, "languages": ["Python"], "corpus_mode": "mixed"},
+        ingest={
+            "ok": True,
+            "records": 1,
+            "bytes": dataset.stat().st_size,
+            "languages": ["Python"],
+            "corpus_mode": "mixed",
+            "results": [
+                {
+                    "source": source,
+                    "code_records": 1,
+                    "instruction_records": 0,
+                    "curriculum_summary": {"tags": {"algorithmic_core": 1}, "high_priority": 1, "medium_priority": 0},
+                }
+            ],
+        },
         corpus_mode="mixed",
     )
     assert ledger["batches"]
     assert list(ledger["sources"].values())[0]["status"] == "queued"
+    assert list(ledger["sources"].values())[0]["curriculum_summary"]["tags"]["algorithmic_core"] == 1
 
     sync = sync_ledger_with_jobs(tmp_path / "ledger.json", [{"id": "train_1", "status": "done"}])
 
@@ -56,3 +72,19 @@ def test_record_training_batch_and_sync_status(tmp_path: Path) -> None:
     after = load_ledger(tmp_path / "ledger.json")
     assert list(after["sources"].values())[0]["status"] == "done"
     assert list(after["batches"].values())[0]["status"] == "done"
+
+
+def test_source_selection_score_rewards_code_training_signals() -> None:
+    baseline = _source("plain", 60)
+    strong = {
+        **_source("compiler-kit", 60),
+        "language": "Python",
+        "license_hint": "MIT",
+        "commercial_use_allowed": True,
+        "distillation_allowed": True,
+        "topics": ["compiler", "testing"],
+        "stars": 600,
+        "forks": 80,
+    }
+
+    assert source_selection_score(strong) > source_selection_score(baseline)
