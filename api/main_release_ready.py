@@ -16,6 +16,7 @@ from api.learning_foundation_api import router as learning_foundation_router
 from api.learning_gate_api import router as learning_gate_router
 from api.main_incident_ready import app
 from api.model_monitor_api import router as model_monitor_router
+from api.model_score_api import router as model_score_router
 from api.result_guard_routes import router as result_guard_router
 
 app.include_router(final_gate_router)
@@ -33,4 +34,5 @@ app.include_router(autotrain_router)
 app.include_router(lan_node_router)
 app.include_router(artifact_shards_router)
 app.include_router(artifact_binding_router)
+app.include_router(model_score_router)
 app.include_router(model_monitor_router)
