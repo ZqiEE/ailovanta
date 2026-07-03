@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from api.artifact_binding_api import router as artifact_binding_router
+from api.artifact_shards_api import router as artifact_shards_router
 from api.autotrain_api import router as autotrain_router
 from api.core_result_api import router as core_result_router
 from api.default_chat_probe_routes import router as default_chat_probe_router
@@ -30,5 +31,6 @@ app.include_router(learning_foundation_router)
 app.include_router(learning_gate_router)
 app.include_router(autotrain_router)
 app.include_router(lan_node_router)
+app.include_router(artifact_shards_router)
 app.include_router(artifact_binding_router)
 app.include_router(model_monitor_router)
