@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -9,12 +10,32 @@ from typing import Iterable
 from api.secret_filter import scan_text
 
 CODE_EXTENSIONS = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".java", ".go", ".rs", ".cpp", ".c", ".h", ".hpp", ".cs", ".php", ".rb", ".swift", ".kt", ".kts", ".sql", ".sh", ".ps1", ".html", ".css", ".json", ".yaml", ".yml", ".toml", ".md",
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".java", ".go", ".rs", ".cpp", ".c", ".h", ".hpp", ".cs", ".php", ".rb", ".swift", ".kt", ".kts", ".sql", ".sh", ".ps1", ".html", ".css", ".json", ".yaml", ".yml", ".toml",
 }
 
-SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "dist", "build", ".next", "__pycache__", ".pytest_cache", "runtime_data"}
+SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "dist", "build", ".next", "__pycache__", ".pytest_cache", "runtime_data", "coverage", ".mypy_cache", ".ruff_cache"}
 LICENSE_FILES = {"license", "license.md", "license.txt", "copying", "copying.txt"}
-_LAST_STATS: dict[str, int] = {"scanned": 0, "accepted": 0, "skipped_secret": 0, "skipped_short": 0, "skipped_read_error": 0}
+LOW_VALUE_FILE_HINTS = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "cargo.lock", ".min.js", ".min.css", ".bundle.js", "coverage-final.json", "tsconfig.tsbuildinfo"}
+SYNTAX_HINTS = {"syntax", "grammar", "basic", "basics", "tutorial", "example", "examples", "intro", "getting_started", "playground", "sample"}
+ALGORITHM_HINTS = {
+    "algorithm", "algorithms", "data_structure", "data_structures", "array", "string", "hash", "heap", "stack", "queue", "linked",
+    "list", "tree", "graph", "trie", "union_find", "disjoint_set", "segment_tree", "fenwick", "sort", "search", "binary_search",
+    "bfs", "dfs", "dijkstra", "astar", "dp", "dynamic_programming", "backtracking", "greedy", "sliding_window", "two_pointer",
+}
+API_HINTS = {"api", "client", "sdk", "http", "request", "response", "handler", "router", "service"}
+TEST_HINTS = {"test", "tests", "__tests__", "spec", "e2e", "integration"}
+_LAST_STATS: dict[str, int] = {
+    "scanned": 0,
+    "accepted": 0,
+    "skipped_secret": 0,
+    "skipped_short": 0,
+    "skipped_read_error": 0,
+    "skipped_low_value": 0,
+    "tagged_syntax_foundation": 0,
+    "tagged_algorithmic_core": 0,
+    "tagged_api_usage": 0,
+    "tagged_test_driven_sample": 0,
+}
 
 
 @dataclass(frozen=True)
@@ -26,6 +47,9 @@ class CodeRecord:
     sha256: str
     license_hint: str
     secret_scan_status: str
+    curriculum_tags: list[str]
+    priority_tier: str
+    priority_score: int
     text: str
 
     def to_json(self) -> str:
@@ -77,10 +101,83 @@ def iter_code_files(root: Path, max_file_bytes: int = 512_000) -> Iterable[Path]
         yield path
 
 
+def classify_curriculum(path: Path, root: Path, text: str) -> tuple[list[str], int]:
+    tags: list[str] = []
+    score = 0
+    rel = str(path.resolve().relative_to(root)).lower().replace("\\", "/")
+    name = path.name.lower()
+    ext = path.suffix.lower()
+
+    if any(hint in rel for hint in ALGORITHM_HINTS):
+        tags.append("algorithmic_core")
+        score += 140
+    if any(hint in rel for hint in TEST_HINTS):
+        tags.append("test_driven_sample")
+        score += 120
+    if any(hint in rel for hint in SYNTAX_HINTS):
+        tags.append("syntax_foundation")
+        score += 110
+    if any(hint in rel for hint in API_HINTS):
+        tags.append("api_usage")
+        score += 90
+
+    if ext in {".py", ".js", ".ts", ".go", ".rs", ".java", ".cpp", ".c", ".cs", ".swift", ".kt"}:
+        score += 25
+    if len(text) <= 6000:
+        score += 10
+    if re.search(r"\b(import|from|using|require|include)\b", text):
+        score += 10
+    if re.search(r"\b(class|def|function|func|interface|struct|impl)\b", text):
+        score += 10
+
+    if "syntax_foundation" not in tags and ext in {".py", ".js", ".ts"} and len(text.splitlines()) <= 80:
+        tags.append("syntax_foundation")
+        score += 40
+    if "api_usage" not in tags and re.search(r"\b(request|response|client|router|handler|service)\b", text.lower()):
+        tags.append("api_usage")
+        score += 35
+
+    if not tags:
+        tags.append("project_usage")
+        score += 20
+    return sorted(set(tags)), score
+
+
+def priority_tier(score: int) -> str:
+    if score >= 180:
+        return "high"
+    if score >= 90:
+        return "medium"
+    return "baseline"
+
+
+def low_value_reason(path: Path, text: str) -> str | None:
+    rel = str(path).lower().replace("\\", "/")
+    name = path.name.lower()
+    if name in LOW_VALUE_FILE_HINTS or any(hint in rel for hint in LOW_VALUE_FILE_HINTS):
+        return "generated_or_lockfile"
+    if len(text) > 20000 and text.count("\n") < 20:
+        return "minified_or_dense_blob"
+    if path.suffix.lower() in {".json", ".yaml", ".yml", ".toml"} and not re.search(r"\b(function|class|api|route|handler|query|schema)\b", text.lower()):
+        return "config_noise"
+    return None
+
+
 def build_records(root: str | Path, max_file_bytes: int = 512_000) -> list[CodeRecord]:
     base = Path(root).resolve()
     hint = license_hint(base)
-    stats = {"scanned": 0, "accepted": 0, "skipped_secret": 0, "skipped_short": 0, "skipped_read_error": 0}
+    stats = {
+        "scanned": 0,
+        "accepted": 0,
+        "skipped_secret": 0,
+        "skipped_short": 0,
+        "skipped_read_error": 0,
+        "skipped_low_value": 0,
+        "tagged_syntax_foundation": 0,
+        "tagged_algorithmic_core": 0,
+        "tagged_api_usage": 0,
+        "tagged_test_driven_sample": 0,
+    }
     records: list[CodeRecord] = []
     for path in iter_code_files(base, max_file_bytes=max_file_bytes):
         stats["scanned"] += 1
@@ -97,7 +194,15 @@ def build_records(root: str | Path, max_file_bytes: int = 512_000) -> list[CodeR
         if not scan.ok:
             stats["skipped_secret"] += 1
             continue
+        if low_value_reason(path, clean):
+            stats["skipped_low_value"] += 1
+            continue
         rel = str(path.resolve().relative_to(base))
+        tags, score = classify_curriculum(path, base, clean)
+        for tag in tags:
+            stats_key = "tagged_" + tag
+            if stats_key in stats:
+                stats[stats_key] += 1
         records.append(
             CodeRecord(
                 source_root=str(base),
@@ -107,10 +212,14 @@ def build_records(root: str | Path, max_file_bytes: int = 512_000) -> list[CodeR
                 sha256=file_hash(clean),
                 license_hint=hint,
                 secret_scan_status="ok",
+                curriculum_tags=tags,
+                priority_tier=priority_tier(score),
+                priority_score=score,
                 text=clean,
             )
         )
         stats["accepted"] += 1
+    records.sort(key=lambda item: (item.priority_score, -item.bytes, item.path), reverse=True)
     _LAST_STATS.clear()
     _LAST_STATS.update(stats)
     return records

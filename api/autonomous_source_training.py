@@ -203,13 +203,9 @@ def corpus_to_training_dataset(corpus_path: str | Path, output_path: str | Path,
     output.parent.mkdir(parents=True, exist_ok=True)
     records = 0
     bytes_written = 0
-    with Path(corpus_path).open("r", encoding="utf-8") as source, output.open("w", encoding="utf-8") as target:
-        for line in source:
-            if records >= max_records:
-                break
-            if not line.strip():
-                continue
-            item = json.loads(line)
+    selected = _select_training_records(corpus_path, max_records=max_records)
+    with output.open("w", encoding="utf-8") as target:
+        for item in selected:
             text = training_text_from_record(item)
             if not text:
                 continue
@@ -219,12 +215,15 @@ def corpus_to_training_dataset(corpus_path: str | Path, output_path: str | Path,
                 "source_name": item.get("source_name"),
                 "rights_id": item.get("rights_id"),
                 "record_kind": item.get("training_record_kind"),
+                "curriculum_tags": item.get("curriculum_tags") or [],
+                "priority_tier": item.get("priority_tier"),
+                "priority_score": item.get("priority_score"),
             }
             encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True)
             target.write(encoded + "\n")
             records += 1
             bytes_written += len(encoded.encode("utf-8", errors="ignore"))
-    return {"ok": records > 0, "output": str(output), "records": records, "bytes": bytes_written}
+    return {"ok": records > 0, "output": str(output), "records": records, "bytes": bytes_written, "selected_tags": _selected_tag_counts(selected)}
 
 
 def training_text_from_record(item: dict[str, Any]) -> str:
@@ -244,3 +243,40 @@ def training_text_from_record(item: dict[str, Any]) -> str:
 def compact_ingest(ingest: dict[str, Any]) -> dict[str, Any]:
     keys = ["ok", "sources", "accepted_sources", "records", "bytes", "languages", "corpus_output", "corpus_mode"]
     return {key: ingest.get(key) for key in keys}
+
+
+def _select_training_records(corpus_path: str | Path, *, max_records: int) -> list[dict[str, Any]]:
+    ranked: list[tuple[int, int, dict[str, Any]]] = []
+    with Path(corpus_path).open("r", encoding="utf-8") as source:
+        for index, line in enumerate(source):
+            if not line.strip():
+                continue
+            item = json.loads(line)
+            ranked.append((_record_priority(item), -index, item))
+    ranked.sort(reverse=True)
+    return [item for _score, _neg_index, item in ranked[:max_records]]
+
+
+def _record_priority(item: dict[str, Any]) -> int:
+    tags = {str(tag) for tag in item.get("curriculum_tags", []) or []}
+    score = int(item.get("priority_score") or 0)
+    if item.get("training_record_kind") == "instruction":
+        score += 160
+    if "algorithmic_core" in tags:
+        score += 80
+    if "syntax_foundation" in tags:
+        score += 60
+    if "test_driven_sample" in tags:
+        score += 50
+    if "api_usage" in tags:
+        score += 40
+    return score
+
+
+def _selected_tag_counts(items: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in items:
+        for tag in item.get("curriculum_tags", []) or []:
+            key = str(tag)
+            counts[key] = counts.get(key, 0) + 1
+    return counts

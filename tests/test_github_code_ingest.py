@@ -93,6 +93,10 @@ def test_ingest_authorized_code_builds_corpus_rights_and_training_job(tmp_path: 
 def test_ingest_can_build_raw_code_corpus_when_requested(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
+    examples = repo / "examples"
+    examples.mkdir()
+    algorithms = repo / "algorithms"
+    algorithms.mkdir()
     (repo / "app.py").write_text(
         "\n".join(
             [
@@ -101,6 +105,34 @@ def test_ingest_can_build_raw_code_corpus_when_requested(tmp_path: Path) -> None
                 "",
                 "def describe() -> str:",
                 "    return 'authorized training sample'",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (algorithms / "binary_search.py").write_text(
+        "\n".join(
+            [
+                "def binary_search(items, target):",
+                "    left, right = 0, len(items) - 1",
+                "    while left <= right:",
+                "        mid = (left + right) // 2",
+                "        if items[mid] == target:",
+                "            return mid",
+                "        if items[mid] < target:",
+                "            left = mid + 1",
+                "        else:",
+                "            right = mid - 1",
+                "    return -1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (examples / "python_basics.py").write_text(
+        "\n".join(
+            [
+                "def normalize_name(value: str) -> str:",
+                "    cleaned = value.strip().lower()",
+                "    return cleaned.replace('_', '-')",
             ]
         ),
         encoding="utf-8",
@@ -121,6 +153,10 @@ def test_ingest_can_build_raw_code_corpus_when_requested(tmp_path: Path) -> None
 
     assert result["ok"] is True
     assert result["corpus_mode"] == "code"
-    line = json.loads((tmp_path / "code.jsonl").read_text(encoding="utf-8").splitlines()[0])
-    assert line["training_record_kind"] == "code"
-    assert line["language"] == "python"
+    lines = [json.loads(line) for line in (tmp_path / "code.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert lines[0]["training_record_kind"] == "code"
+    assert lines[0]["language"] == "python"
+    assert "algorithmic_core" in lines[0]["curriculum_tags"]
+    assert lines[0]["priority_tier"] == "high"
+    assert any("syntax_foundation" in line["curriculum_tags"] for line in lines)
+    assert result["results"][0]["curriculum_summary"]["tags"]["algorithmic_core"] >= 1

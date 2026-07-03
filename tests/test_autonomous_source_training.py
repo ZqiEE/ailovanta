@@ -22,24 +22,44 @@ def test_training_text_from_instruction_record() -> None:
 def test_corpus_to_training_dataset(tmp_path: Path) -> None:
     corpus = tmp_path / "corpus.jsonl"
     corpus.write_text(
-        json.dumps(
-            {
-                "training_record_kind": "code",
-                "text": "def add(a, b): return a + b",
-                "path": "src/add.py",
-                "source_name": "local",
-                "rights_id": "rights_1",
-            }
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "training_record_kind": "code",
+                        "text": "def add(a, b): return a + b",
+                        "path": "algorithms/add.py",
+                        "source_name": "local",
+                        "rights_id": "rights_1",
+                        "curriculum_tags": ["algorithmic_core"],
+                        "priority_score": 220,
+                        "priority_tier": "high",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "training_record_kind": "code",
+                        "text": "SERVICE_NAME=ailovanta",
+                        "path": "config/env.py",
+                        "source_name": "local",
+                        "rights_id": "rights_1",
+                        "curriculum_tags": ["project_usage"],
+                        "priority_score": 20,
+                        "priority_tier": "baseline",
+                    }
+                ),
+            ]
         )
         + "\n",
         encoding="utf-8",
     )
 
-    result = corpus_to_training_dataset(corpus, tmp_path / "train.jsonl")
+    result = corpus_to_training_dataset(corpus, tmp_path / "train.jsonl", max_records=1)
 
     assert result["ok"] is True
     assert result["records"] == 1
     assert "def add" in (tmp_path / "train.jsonl").read_text(encoding="utf-8")
+    assert result["selected_tags"]["algorithmic_core"] == 1
 
 
 def test_autonomous_source_training_cycle_queues_job(monkeypatch, tmp_path: Path) -> None:

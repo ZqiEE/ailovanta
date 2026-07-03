@@ -158,18 +158,30 @@ def ingest_sources(
             code_stats = last_stats() if corpus_mode in {"code", "mixed"} else {}
             instruction_records = build_instruction_records(path, max_file_bytes=max_file_bytes) if corpus_mode in {"instructions", "mixed"} else []
             instruction_stats = instruction_last_stats() if corpus_mode in {"instructions", "mixed"} else {}
-            records = [*instruction_records, *code_records]
+            records = sorted(
+                [*instruction_records, *code_records],
+                key=lambda item: (
+                    int(getattr(item, "priority_score", 100)),
+                    -int(getattr(item, "bytes", 0)),
+                    str(getattr(item, "path", "")),
+                ),
+                reverse=True,
+            )
             for item in records:
                 body = dict(item.__dict__)
+                record_kind = "instruction" if "instruction" in body else "code"
                 body.update(
                     {
-                        "training_record_kind": "instruction" if "instruction" in body else "code",
+                        "training_record_kind": record_kind,
                         "source_url": source.get("url") or source.get("path"),
                         "source_name": source.get("name") or safe_name(str(source.get("url") or path)),
                         "commit_sha": sha,
                         "rights_id": record["rights_id"],
                         "license_policy": source.get("license_policy"),
                         "authorization_basis": decision,
+                        "curriculum_tags": body.get("curriculum_tags") or [],
+                        "priority_tier": body.get("priority_tier") or ("high" if record_kind == "instruction" else "baseline"),
+                        "priority_score": int(body.get("priority_score") or (160 if record_kind == "instruction" else 40)),
                     }
                 )
                 out.write(json.dumps(body, ensure_ascii=False, sort_keys=True) + "\n")
@@ -181,7 +193,19 @@ def ingest_sources(
                 dataset_id = stable_id("dataset_code_", str(output.resolve()) + "|" + record["rights_id"] + "|" + corpus_mode)
                 job = jobs.create_job(rights_id=record["rights_id"], dataset_id=dataset_id, kind=training_kind)
                 created_jobs.append(job)
-            source_results.append({**ensured, "rights_id": record["rights_id"], "records": len(records), "code_records": len(code_records), "instruction_records": len(instruction_records), "code_stats": code_stats, "instruction_stats": instruction_stats, "job_id": job.get("job_id") if job else None})
+            source_results.append(
+                {
+                    **ensured,
+                    "rights_id": record["rights_id"],
+                    "records": len(records),
+                    "code_records": len(code_records),
+                    "instruction_records": len(instruction_records),
+                    "code_stats": code_stats,
+                    "instruction_stats": instruction_stats,
+                    "job_id": job.get("job_id") if job else None,
+                    "curriculum_summary": summarize_curriculum(code_records),
+                }
+            )
     return {
         "ok": total_records > 0,
         "schema_version": "ailovanta.github_code_ingest.v1",
@@ -196,4 +220,16 @@ def ingest_sources(
         "created_jobs": created_jobs,
         "corpus_mode": corpus_mode,
         "results": source_results,
+    }
+
+
+def summarize_curriculum(code_records: list[Any]) -> dict[str, Any]:
+    counts: dict[str, int] = {}
+    for item in code_records:
+        for tag in getattr(item, "curriculum_tags", []) or []:
+            counts[str(tag)] = counts.get(str(tag), 0) + 1
+    return {
+        "tags": counts,
+        "high_priority": sum(1 for item in code_records if getattr(item, "priority_tier", "") == "high"),
+        "medium_priority": sum(1 for item in code_records if getattr(item, "priority_tier", "") == "medium"),
     }
