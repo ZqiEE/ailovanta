@@ -13,6 +13,7 @@ from api.continuous_training_ledger import record_training_batch, sync_ledger_wi
 from api.github_code_ingest import ingest_sources
 from api.owned_model_readiness import classify_owned_model_readiness
 from api.route_book import RouteBook
+from api.runtime_quality import benchmark_summary_from_binding
 
 
 def post_json(server: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -333,6 +334,7 @@ def owned_runtime_takeover_status(
         "active_route": _compact_route(active_route),
         "route_matches_active_binding": route_matches_active,
         "model_readiness": readiness,
+        "benchmark_summary": benchmark_summary_from_binding(active_binding),
         "self_trained_ready": bool(readiness.get("self_trained_ready")),
     }
 

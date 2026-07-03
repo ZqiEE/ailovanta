@@ -744,6 +744,7 @@ def ailovanta_chat(body: NativeChatRequest) -> dict:
                 "owned_model_ready": owned_model_ready,
                 "self_trained_ready": bool(result.model_readiness.get("self_trained_ready")),
                 "model_readiness": result.model_readiness,
+                "benchmark_summary": result.benchmark_summary,
                 "model_id": result.model_id,
                 "version": result.version,
             }

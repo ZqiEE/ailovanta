@@ -9,6 +9,7 @@ from api.artifact_binding import ArtifactBindingStore
 from api.bound_runtime import ArtifactBoundRuntime, BoundRuntimeUnavailable
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.owned_model_readiness import classify_owned_model_readiness
+from api.runtime_quality import benchmark_summary_from_binding
 
 app = FastAPI(title="Ailovanta Worker", version="1.0.5")
 
@@ -101,6 +102,7 @@ def infer(body: InferRequest) -> dict:
         "policy_mode": body.policy_mode,
         "artifact_binding": binding,
         "model_readiness": classify_owned_model_readiness(binding) if binding else None,
+        "benchmark_summary": benchmark_summary_from_binding(binding),
         "validation_provenance": {
             "schema_version": "ailovanta.worker_result_provenance.v1",
             "binding_id": binding.get("binding_id") if binding else None,

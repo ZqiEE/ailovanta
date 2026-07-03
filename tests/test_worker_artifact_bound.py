@@ -99,4 +99,5 @@ def test_worker_response_includes_readiness_and_binding_status(monkeypatch, tmp_
     assert response.status_code == 200
     body = response.json()
     assert body["model_readiness"]["stage"] == "bootstrap_connected"
+    assert body["benchmark_summary"]["available"] is False
     assert body["validation_provenance"]["binding_status"] == "active"

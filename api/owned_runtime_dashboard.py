@@ -5,6 +5,7 @@ from typing import Any
 from api.artifact_binding import ArtifactBindingStore
 from api.owned_model_readiness import classify_owned_model_readiness
 from api.reputation_ops import ReputationOps
+from api.runtime_quality import benchmark_summary_from_binding
 from api.runtime_store import RuntimeStore
 from api.worker_result_validator import WorkerResultValidationStore
 
@@ -34,12 +35,14 @@ class OwnedRuntimeDashboard:
         recent_successful_route = next((item for item in assignments if item.get("assigned")), None)
         binding = self.binding_store.latest_for_model_statuses("ailovanta-owned:candidate", ("active",))
         readiness = classify_owned_model_readiness(binding)
+        benchmark_summary = benchmark_summary_from_binding(binding)
         blockers = self._blockers(runtime_status, assignments, validations)
 
         return {
             "ok": not blockers,
             "blockers": blockers,
             "model_readiness": readiness,
+            "benchmark_summary": benchmark_summary,
             "runtime": runtime_status,
             "route": {
                 "recent_assignments": assignments,

@@ -386,4 +386,5 @@ def test_autonomous_source_training_cycle_reports_owned_runtime_ready_without_ne
     assert result["ok"] is True
     assert result["stage"] == "owned_runtime_ready"
     assert result["owned_runtime"]["self_trained_ready"] is True
+    assert result["owned_runtime"]["benchmark_summary"]["ok"] is True
     assert result["state"]["owned_runtime"]["route_matches_active_binding"] is True

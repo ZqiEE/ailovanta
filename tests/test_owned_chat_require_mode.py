@@ -206,6 +206,8 @@ def test_native_chat_uses_owned_worker_only_when_self_trained_ready(monkeypatch,
     assert body["self_trained_ready"] is True
     assert body["source"] == "test-owned-worker"
     assert body["answer"] == "owned worker answer"
+    assert body["benchmark_summary"]["ok"] is True
+    assert body["benchmark_summary"]["passed_cases"] == 2
 
 
 def test_native_chat_prefers_owned_runtime_by_default_but_falls_back_if_not_self_trained(monkeypatch, tmp_path) -> None:

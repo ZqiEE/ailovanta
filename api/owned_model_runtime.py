@@ -8,6 +8,7 @@ from typing import Literal
 from api.artifact_binding import ArtifactBindingStore
 from api.owned_model_readiness import classify_owned_model_readiness
 from api.route_book import RouteBook
+from api.runtime_quality import benchmark_summary_from_binding
 from api.runtime_ref import check_runtime_ref
 from api.worker_transport import WorkerInferenceClient, WorkerInferenceRequest, WorkerInferenceUnavailable
 
@@ -35,6 +36,7 @@ class OwnedModelResult:
     policy_mode: PolicyMode
     worker_result: dict[str, Any]
     model_readiness: dict[str, Any]
+    benchmark_summary: dict[str, Any]
 
 
 class OwnedModelUnavailable(RuntimeError):
@@ -131,6 +133,7 @@ class OwnedModelRuntime:
         route_with_binding = {**route, "artifact_binding_id": binding.get("binding_id") if binding else None}
         worker_readiness = worker_result.raw.get("model_readiness") if isinstance(worker_result.raw.get("model_readiness"), dict) else None
         effective_readiness = worker_readiness or classify_owned_model_readiness(binding)
+        worker_benchmark = worker_result.raw.get("benchmark_summary") if isinstance(worker_result.raw.get("benchmark_summary"), dict) else None
         return OwnedModelResult(
             answer=worker_result.answer,
             source=worker_result.source,
@@ -140,4 +143,5 @@ class OwnedModelRuntime:
             policy_mode=request.policy_mode,
             worker_result=worker_result.raw,
             model_readiness=effective_readiness,
+            benchmark_summary=worker_benchmark or benchmark_summary_from_binding(binding),
         )

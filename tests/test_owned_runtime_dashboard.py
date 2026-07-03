@@ -114,6 +114,7 @@ def test_owned_runtime_dashboard_surfaces_route_validation_and_reputation(monkey
         assert response.status_code == 200
         body = response.json()
         assert body["ok"] is True
+        assert body["benchmark_summary"]["available"] is False
         assert body["runtime"]["online_runtimes"] == 1
         assert body["route"]["recent_successful_assignment"]["runtime_id"] == "rt-owned-dashboard"
         assert body["worker_validation"]["recent_receipt_count"] >= 1
