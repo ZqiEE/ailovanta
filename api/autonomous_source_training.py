@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import time
 import urllib.request
 from pathlib import Path
 from typing import Any
 
+from api.artifact_binding import ArtifactBindingStore
 from api.continuous_training_ledger import record_training_batch, sync_ledger_with_jobs, write_limited_sources
 from api.github_code_ingest import ingest_sources
+from api.owned_model_readiness import classify_owned_model_readiness
+from api.route_book import RouteBook
 
 
 def post_json(server: str, path: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -45,23 +49,38 @@ def run_autonomous_source_training_cycle(
     frontier_path: str | Path = "runtime_data/github_source_frontier.json",
     max_discovery_queries: int = 5,
     ledger_path: str | Path = "runtime_data/continuous_training_ledger.json",
+    state_path: str | Path | None = None,
 ) -> dict[str, Any]:
     root = Path(work_root)
     root.mkdir(parents=True, exist_ok=True)
     sources = Path(sources_path)
+    state_target = Path(state_path) if state_path is not None else root.parent / "full_auto_state.json"
 
     discovery = discover_sources_if_needed(sources, enabled=discover, frontier_path=frontier_path, max_queries=max_discovery_queries)
     scheduler_sync = sync_training_ledger_from_server(server, ledger_path)
+    owned_runtime = owned_runtime_takeover_status()
     selection = limit_sources(sources, root / "sources_limited.json", max_sources, ledger_path=ledger_path, corpus_mode=corpus_mode)
     limited_sources = Path(str(selection["output"]))
     if not selection["selected"]:
-        return {
-            "ok": False,
-            "stage": "no_new_sources",
+        stage = "owned_runtime_ready" if owned_runtime["self_trained_ready"] else "no_new_sources"
+        result = {
+            "ok": bool(owned_runtime["self_trained_ready"]),
+            "stage": stage,
             "discovery": discovery,
             "scheduler_sync": scheduler_sync,
             "selection": selection,
+            "owned_runtime": owned_runtime,
         }
+        result["state"] = write_full_auto_state(
+            state_target,
+            stage=stage,
+            server=server,
+            discovery=discovery,
+            scheduler_sync=scheduler_sync,
+            selection=selection,
+            owned_runtime=owned_runtime,
+        )
+        return result
     corpus_path = root / "code_corpus.jsonl"
     ingest = ingest_sources(
         limited_sources,
@@ -76,7 +95,7 @@ def run_autonomous_source_training_cycle(
     dataset_path = root / "autonomous_training_dataset.jsonl"
     dataset = corpus_to_training_dataset(corpus_path, dataset_path, max_records=max_records)
     if dataset["records"] <= 0:
-        return {
+        result = {
             "ok": False,
             "stage": "no_training_records",
             "discovery": discovery,
@@ -84,7 +103,20 @@ def run_autonomous_source_training_cycle(
             "selection": selection,
             "ingest": compact_ingest(ingest),
             "dataset": dataset,
+            "owned_runtime": owned_runtime,
         }
+        result["state"] = write_full_auto_state(
+            state_target,
+            stage="no_training_records",
+            server=server,
+            discovery=discovery,
+            scheduler_sync=scheduler_sync,
+            selection=selection,
+            ingest=compact_ingest(ingest),
+            dataset=dataset,
+            owned_runtime=owned_runtime,
+        )
+        return result
 
     job_payload = build_autonomous_training_job_payload(
         dataset_path=dataset_path,
@@ -108,7 +140,7 @@ def run_autonomous_source_training_cycle(
         ingest=ingest,
         corpus_mode=corpus_mode,
     )
-    return {
+    result = {
         "ok": True,
         "stage": "training_job_queued",
         "server": server,
@@ -120,8 +152,24 @@ def run_autonomous_source_training_cycle(
         "job": job,
         "job_payload": job_payload,
         "ledger": {"path": str(ledger_path), "sources": len(ledger.get("sources", {})), "batches": len(ledger.get("batches", {}))},
+        "owned_runtime": owned_runtime_takeover_status(),
         "created_at": round(time.time(), 3),
     }
+    result["state"] = write_full_auto_state(
+        state_target,
+        stage="training_job_queued",
+        server=server,
+        discovery=discovery,
+        scheduler_sync=scheduler_sync,
+        selection=selection,
+        ingest=compact_ingest(ingest),
+        dataset=dataset,
+        job=job,
+        job_payload=job_payload,
+        ledger=result["ledger"],
+        owned_runtime=result["owned_runtime"],
+    )
+    return result
 
 
 def build_autonomous_training_job_payload(
@@ -255,6 +303,40 @@ def compact_ingest(ingest: dict[str, Any]) -> dict[str, Any]:
     return {key: ingest.get(key) for key in keys}
 
 
+def owned_runtime_takeover_status(
+    *,
+    model_key: str = "ailovanta-owned:candidate",
+    route_key: str = "owned-chat/default",
+    bindings_path: str | Path | None = None,
+    route_book_path: str | Path | None = None,
+) -> dict[str, Any]:
+    bindings = ArtifactBindingStore(bindings_path or os.getenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", "runtime_data/artifact_bindings.sqlite3"))
+    routes = RouteBook(route_book_path or os.getenv("AILOVANTA_ROUTE_BOOK_PATH", "runtime_data/route_book.sqlite3"))
+    active_binding = bindings.latest_for_model_statuses(model_key, ("active",))
+    candidate_binding = bindings.latest_for_model_statuses(model_key, ("candidate",))
+    active_route = routes.active(route_key)
+    readiness = classify_owned_model_readiness(active_binding)
+    route_matches_active = bool(
+        active_binding
+        and active_route
+        and str(active_route.get("model_key") or "") == str(active_binding.get("model_key") or "")
+        and (
+            not active_route.get("binding_id")
+            or str(active_route.get("binding_id") or "") == str(active_binding.get("binding_id") or "")
+        )
+    )
+    return {
+        "model_key": model_key,
+        "route_key": route_key,
+        "active_binding": _compact_binding(active_binding),
+        "candidate_binding": _compact_binding(candidate_binding),
+        "active_route": _compact_route(active_route),
+        "route_matches_active_binding": route_matches_active,
+        "model_readiness": readiness,
+        "self_trained_ready": bool(readiness.get("self_trained_ready")),
+    }
+
+
 def _select_training_records(corpus_path: str | Path, *, max_records: int) -> dict[str, Any]:
     ranked: list[tuple[int, int, dict[str, Any]]] = []
     duplicates_skipped = 0
@@ -317,3 +399,88 @@ def _training_record_fingerprint(item: dict[str, Any]) -> str:
         sort_keys=True,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def write_full_auto_state(
+    path: str | Path,
+    *,
+    stage: str,
+    server: str,
+    discovery: dict[str, Any],
+    scheduler_sync: dict[str, Any],
+    selection: dict[str, Any],
+    owned_runtime: dict[str, Any],
+    ingest: dict[str, Any] | None = None,
+    dataset: dict[str, Any] | None = None,
+    job: dict[str, Any] | None = None,
+    job_payload: dict[str, Any] | None = None,
+    ledger: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    state = {
+        "schema_version": "ailovanta.full_auto_state.v1",
+        "ok": stage in {"training_job_queued", "owned_runtime_ready"},
+        "stage": stage,
+        "server": server,
+        "discovery": {
+            "ok": discovery.get("ok"),
+            "enabled": discovery.get("enabled"),
+            "queries": discovery.get("queries"),
+            "discovered": discovery.get("discovered"),
+            "added": discovery.get("added"),
+        },
+        "scheduler_sync": scheduler_sync,
+        "selection": {
+            "selected": len(selection.get("selected", []) or []),
+            "available": selection.get("available"),
+            "skipped": len(selection.get("skipped", []) or []),
+        },
+        "ingest": ingest,
+        "dataset": dataset,
+        "job": _compact_job(job),
+        "job_payload": job_payload,
+        "ledger": ledger,
+        "owned_runtime": owned_runtime,
+        "created_at": round(time.time(), 3),
+    }
+    target.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    return state
+
+
+def _compact_binding(binding: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not binding:
+        return None
+    metadata = binding.get("metadata") if isinstance(binding.get("metadata"), dict) else {}
+    return {
+        "binding_id": binding.get("binding_id"),
+        "model_key": binding.get("model_key"),
+        "backend_kind": binding.get("backend_kind"),
+        "artifact_hash": binding.get("artifact_hash"),
+        "status": binding.get("status"),
+        "promotion_gate_ok": (metadata.get("promotion_gate") or {}).get("ok") if isinstance(metadata.get("promotion_gate"), dict) else None,
+        "route_publish_ok": (metadata.get("route_publish") or {}).get("ok") if isinstance(metadata.get("route_publish"), dict) else None,
+    }
+
+
+def _compact_route(route: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not route:
+        return None
+    return {
+        "route_key": route.get("route_key"),
+        "model_key": route.get("model_key"),
+        "binding_id": route.get("binding_id"),
+        "status": route.get("status"),
+        "reason": route.get("reason"),
+    }
+
+
+def _compact_job(job: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not job:
+        return None
+    payload = job.get("job") if isinstance(job.get("job"), dict) else job
+    return {
+        "id": payload.get("id") or payload.get("job_id"),
+        "status": payload.get("status"),
+        "type": payload.get("type") or payload.get("job_type"),
+    }
