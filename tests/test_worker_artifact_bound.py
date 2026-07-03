@@ -88,3 +88,15 @@ def test_worker_reports_unavailable_bound_runtime(monkeypatch, tmp_path: Path) -
 
     assert response.status_code == 503
     assert response.json()["detail"]["reason"] == "artifact_bound_runtime_unavailable"
+
+
+def test_worker_response_includes_readiness_and_binding_status(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", str(tmp_path / "bindings.sqlite3"))
+    register_checkpoint_binding(tmp_path)
+
+    response = TestClient(app).post("/v1/owned/infer", json=infer_payload())
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["model_readiness"]["stage"] == "bootstrap_connected"
+    assert body["validation_provenance"]["binding_status"] == "active"

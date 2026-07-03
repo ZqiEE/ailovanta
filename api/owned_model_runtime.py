@@ -129,6 +129,8 @@ class OwnedModelRuntime:
             raise OwnedModelUnavailable(f"worker inference unavailable: {exc}") from exc
 
         route_with_binding = {**route, "artifact_binding_id": binding.get("binding_id") if binding else None}
+        worker_readiness = worker_result.raw.get("model_readiness") if isinstance(worker_result.raw.get("model_readiness"), dict) else None
+        effective_readiness = worker_readiness or classify_owned_model_readiness(binding)
         return OwnedModelResult(
             answer=worker_result.answer,
             source=worker_result.source,
@@ -137,5 +139,5 @@ class OwnedModelRuntime:
             runtime_route=route_with_binding,
             policy_mode=request.policy_mode,
             worker_result=worker_result.raw,
-            model_readiness=classify_owned_model_readiness(binding),
+            model_readiness=effective_readiness,
         )

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from api.artifact_binding import ArtifactBindingStore
 from api.bound_runtime import ArtifactBoundRuntime, BoundRuntimeUnavailable
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
+from api.owned_model_readiness import classify_owned_model_readiness
 
 app = FastAPI(title="Ailovanta Worker", version="1.0.5")
 
@@ -99,6 +100,7 @@ def infer(body: InferRequest) -> dict:
         "model_manifest_hash": body.model_manifest_hash,
         "policy_mode": body.policy_mode,
         "artifact_binding": binding,
+        "model_readiness": classify_owned_model_readiness(binding) if binding else None,
         "validation_provenance": {
             "schema_version": "ailovanta.worker_result_provenance.v1",
             "binding_id": binding.get("binding_id") if binding else None,
@@ -106,5 +108,6 @@ def infer(body: InferRequest) -> dict:
             "artifact_hash": binding.get("artifact_hash") if binding else None,
             "backend_kind": binding.get("backend_kind") if binding else None,
             "backend_ref": binding.get("backend_ref") if binding else None,
+            "binding_status": binding.get("status") if binding else None,
         },
     }

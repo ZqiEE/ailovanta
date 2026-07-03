@@ -73,7 +73,7 @@ class WorkerInferenceClient:
             raise WorkerInferenceUnavailable("worker returned empty answer")
         return WorkerInferenceResult(
             answer=answer,
-            source="ailovanta-worker",
+            source=str(data.get("source") or "ailovanta-worker"),
             worker_url=worker_url,
             runtime_id=request.runtime_id,
             node_id=request.node_id,

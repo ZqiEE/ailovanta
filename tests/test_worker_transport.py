@@ -48,6 +48,7 @@ def test_worker_infer_posts_to_registered_endpoint(tmp_path, monkeypatch) -> Non
         )
     )
     assert result.answer == "worker answer"
+    assert result.source == "test-worker"
     assert result.worker_url == "http://worker.local"
 
 
