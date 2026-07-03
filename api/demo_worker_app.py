@@ -8,8 +8,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from api.artifact_binding import ArtifactBindingStore
+from api.shard_receive import list_received_shards, receive_shard
 
-app = FastAPI(title="Ailovanta Worker", version="0.3.1")
+app = FastAPI(title="Ailovanta Worker", version="0.4.0")
 
 _loaded: dict[str, dict] = {}
 
@@ -23,6 +24,14 @@ class InferRequest(BaseModel):
     node_id: str
     model_manifest_hash: str
     max_new_tokens: int = 128
+
+
+class ShardReceiveRequest(BaseModel):
+    artifact_hash: str
+    shard_index: int
+    shard_hash: str
+    data_base64: str
+    source_runtime_id: str | None = None
 
 
 def ref_path(value: str | None) -> Path | None:
@@ -98,6 +107,22 @@ def generate_local(model_dir: str | None, prompt: str, max_new_tokens: int) -> d
 @app.get("/health")
 def health() -> dict:
     return {"ok": True, "service": "ailovanta-worker"}
+
+
+@app.post("/v1/shards/receive")
+def receive_worker_shard(body: ShardReceiveRequest) -> dict:
+    return receive_shard(
+        artifact_hash=body.artifact_hash,
+        shard_index=body.shard_index,
+        shard_hash=body.shard_hash,
+        data_base64=body.data_base64,
+        source_runtime_id=body.source_runtime_id,
+    )
+
+
+@app.get("/v1/shards")
+def list_worker_shards() -> dict:
+    return list_received_shards()
 
 
 @app.post("/v1/owned/infer")
