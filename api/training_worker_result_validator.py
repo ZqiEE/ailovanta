@@ -118,6 +118,8 @@ def build_training_worker_result(
             "memory_gb": profile.get("memory_gb"),
             "has_gpu": bool(profile.get("has_gpu")),
             "gpu_name": profile.get("gpu_name"),
+            "gpu_memory_gb": profile.get("gpu_memory_gb"),
+            "available_gpu_memory_gb": profile.get("available_gpu_memory_gb"),
         },
         "training_request": _compact_payload(payload),
         "training_output": {

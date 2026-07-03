@@ -115,6 +115,60 @@ def test_run_model_job_strict_real_training_does_not_fallback_to_lightweight(tmp
     assert evidence["actual_backend"] == "real_training_preflight_failed"
 
 
+def test_run_model_job_records_auto_backend_plan_when_real_training_is_requested(monkeypatch, tmp_path: Path) -> None:
+    dataset = write_dataset(tmp_path / "train.jsonl")
+    output_dir = tmp_path / "auto-model"
+
+    monkeypatch.setattr(
+        "api.model_job.select_real_training_backend",
+        lambda payload, profile=None: {
+            "requested_backend": "auto",
+            "selected_backend": "lora",
+            "reason": "auto_selection:lora_gpu_available",
+        },
+    )
+    monkeypatch.setattr(
+        "api.model_job.check_real_training_requirements",
+        lambda payload, profile=None: {
+            "ok": False,
+            "backend": "lora",
+            "backend_plan": {
+                "requested_backend": "auto",
+                "selected_backend": "lora",
+                "reason": "auto_selection:lora_gpu_available",
+            },
+            "blockers": ["base_model_path_missing"],
+        },
+    )
+
+    result = run_model_job(
+        {
+            "name": "auto-real",
+            "version": "v1",
+            "dataset_uri": "file://" + str(dataset),
+            "base_model": str(tmp_path / "missing-base-model"),
+            "max_steps": 1,
+            "output_dir": str(output_dir),
+            "real": True,
+            "use_transformers": True,
+            "training_backend": "auto",
+            "allow_lightweight_fallback": False,
+            "requires_gpu": True,
+        },
+        {"cpu_threads": 4, "memory_gb": 16, "has_gpu": True, "gpu_name": "pytest-gpu", "gpu_memory_gb": 16, "available_gpu_memory_gb": 14},
+        "job-auto-real",
+    )
+
+    record = json.loads((output_dir / "output.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "failed"
+    assert record["training_backend_plan"]["selected_backend"] == "lora"
+    assert record["training_runtime_evidence"]["requested_backend"] == "auto"
+    assert record["training_runtime_evidence"]["selected_backend"] == "lora"
+    assert record["training_runtime_evidence"]["backend_auto_selected"] is True
+    assert any(item["path"] == "output.json" for item in record["artifact_files"]) is False
+
+
 def test_node_client_uses_model_job_training_backend(tmp_path: Path) -> None:
     dataset = write_dataset(tmp_path / "train.jsonl")
     output_dir = tmp_path / "node-model"

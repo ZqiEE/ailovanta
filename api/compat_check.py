@@ -5,6 +5,8 @@ from pathlib import Path
 import platform
 from typing import Any
 
+REAL_TRAINING_BACKENDS = {"auto", "transformers", "lora", "qlora"}
+
 
 def module_state(name: str) -> dict[str, Any]:
     spec = importlib.util.find_spec(name)
@@ -59,7 +61,8 @@ def check_local_stack() -> dict[str, Any]:
 def check_real_training_requirements(payload: dict[str, Any], profile: dict[str, Any] | None = None) -> dict[str, Any]:
     stack = check_local_stack()
     installed = {item["name"]: item["installed"] for item in stack["modules"]}
-    backend = training_backend_from_payload(payload)
+    backend_plan = select_real_training_backend(payload, profile=profile, stack=stack)
+    backend = backend_plan["selected_backend"]
     blockers: list[str] = []
     warnings: list[str] = []
     profile = profile or {}
@@ -105,6 +108,7 @@ def check_real_training_requirements(payload: dict[str, Any], profile: dict[str,
         "ok": not blockers,
         "real_training_required": True,
         "backend": backend,
+        "backend_plan": backend_plan,
         "blockers": blockers,
         "warnings": warnings,
         "base_model": base_model,
@@ -114,11 +118,69 @@ def check_real_training_requirements(payload: dict[str, Any], profile: dict[str,
 
 
 def training_backend_from_payload(payload: dict[str, Any]) -> str:
+    preferred = str(payload.get("training_backend") or "").strip().lower()
+    if preferred in REAL_TRAINING_BACKENDS:
+        return preferred
     if payload.get("qlora"):
         return "qlora"
     if payload.get("peft") or payload.get("lora"):
         return "lora"
     return "transformers"
+
+
+def select_real_training_backend(
+    payload: dict[str, Any],
+    *,
+    profile: dict[str, Any] | None = None,
+    stack: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    stack = stack or check_local_stack()
+    profile = profile or {}
+    requested = training_backend_from_payload(payload)
+    installed = {item["name"]: item["installed"] for item in stack.get("modules", [])}
+    cuda = stack.get("cuda") if isinstance(stack.get("cuda"), dict) else {}
+    profile_has_gpu = bool(profile.get("has_gpu"))
+    torch_cuda = bool(cuda.get("available"))
+    gpu_memory_gb = float(profile.get("available_gpu_memory_gb") or profile.get("gpu_memory_gb") or 0.0)
+    if gpu_memory_gb <= 0:
+        gpu_memory_gb = float(profile.get("memory_gb") or 0.0)
+    lora_ready = bool(installed.get("torch") and installed.get("transformers") and installed.get("datasets") and installed.get("peft"))
+    qlora_ready = bool(lora_ready and installed.get("bitsandbytes") and torch_cuda and stack.get("system") == "Linux")
+    transformers_ready = bool(installed.get("torch") and installed.get("transformers") and installed.get("datasets"))
+
+    selected = requested
+    reason = "explicit_request"
+    candidates: list[str] = []
+    if qlora_ready and profile_has_gpu and torch_cuda:
+        candidates.append("qlora")
+    if lora_ready and profile_has_gpu:
+        candidates.append("lora")
+    if transformers_ready:
+        candidates.append("transformers")
+
+    if requested == "auto":
+        reason = "auto_selection"
+        if qlora_ready and profile_has_gpu and torch_cuda and gpu_memory_gb > 0 and gpu_memory_gb <= 24:
+            selected = "qlora"
+            reason = "auto_selection:qlora_low_memory_gpu"
+        elif lora_ready and profile_has_gpu and torch_cuda:
+            selected = "lora"
+            reason = "auto_selection:lora_gpu_available"
+        else:
+            selected = "transformers"
+            reason = "auto_selection:transformers_portable_real_backend"
+    return {
+        "requested_backend": requested,
+        "selected_backend": selected,
+        "reason": reason,
+        "profile_has_gpu": profile_has_gpu,
+        "torch_cuda_available": torch_cuda,
+        "gpu_memory_gb": gpu_memory_gb,
+        "candidates": candidates,
+        "stack_lora_ready": lora_ready,
+        "stack_qlora_ready": qlora_ready,
+        "stack_transformers_ready": transformers_ready,
+    }
 
 
 def classify_base_model_ref(value: str) -> dict[str, Any]:

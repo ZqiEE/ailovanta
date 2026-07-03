@@ -39,7 +39,7 @@ def run_autonomous_source_training_cycle(
     corpus_mode: str = "mixed",
     max_steps: int = 16,
     base_model: str = "sshleifer/tiny-gpt2",
-    training_backend: str = "lora",
+    training_backend: str = "auto",
     require_gpu: bool = True,
     allow_lightweight_fallback: bool = False,
     frontier_path: str | Path = "runtime_data/github_source_frontier.json",
@@ -129,13 +129,13 @@ def build_autonomous_training_job_payload(
     dataset_path: str | Path,
     max_steps: int,
     base_model: str,
-    training_backend: str = "lora",
+    training_backend: str = "auto",
     require_gpu: bool = True,
     allow_lightweight_fallback: bool = False,
 ) -> dict[str, Any]:
     backend = training_backend.lower().strip()
-    if backend not in {"lora", "qlora", "transformers"}:
-        raise ValueError("training_backend must be one of: lora, qlora, transformers")
+    if backend not in {"auto", "lora", "qlora", "transformers"}:
+        raise ValueError("training_backend must be one of: auto, lora, qlora, transformers")
     payload: dict[str, Any] = {
         "kind": "lora_micro",
         "name": "ailovanta-auto-source",
@@ -147,6 +147,7 @@ def build_autonomous_training_job_payload(
         "requires_gpu": require_gpu,
         "allow_lightweight_fallback": allow_lightweight_fallback,
         "priority": 100 if require_gpu else 80,
+        "training_backend": backend,
         "notes": "autonomous source discovery -> ingest -> real Transformers/LoRA training job",
     }
     if backend in {"lora", "qlora"}:

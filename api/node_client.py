@@ -101,10 +101,14 @@ def detect(enable_gpu: bool) -> dict[str, Any]:
 
     has_gpu = False
     gpu_name = None
+    gpu_memory_gb = 0.0
+    available_gpu_memory_gb = 0.0
     if enable_gpu:
         gpu = detect_gpu()
         has_gpu = bool(gpu.get("has_gpu"))
         gpu_name = gpu.get("gpu_name")
+        gpu_memory_gb = float(gpu.get("gpu_memory_gb") or 0.0)
+        available_gpu_memory_gb = float(gpu.get("available_gpu_memory_gb") or 0.0)
 
     return {
         "device_name": f"{socket.gethostname()}-{platform.system()}",
@@ -112,6 +116,8 @@ def detect(enable_gpu: bool) -> dict[str, Any]:
         "memory_gb": memory_gb,
         "has_gpu": has_gpu,
         "gpu_name": gpu_name,
+        "gpu_memory_gb": gpu_memory_gb,
+        "available_gpu_memory_gb": available_gpu_memory_gb,
     }
 
 

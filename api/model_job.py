@@ -7,7 +7,7 @@ from pathlib import Path
 from time import time
 from typing import Any
 
-from api.compat_check import check_real_training_requirements
+from api.compat_check import check_real_training_requirements, select_real_training_backend
 
 
 class ModelJobError(RuntimeError):
@@ -26,13 +26,16 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
     max_steps = int(payload.get("max_steps") or payload.get("steps") or 10)
     use_real = bool(payload.get("real") or payload.get("use_transformers") or payload.get("peft") or payload.get("qlora"))
     preflight: dict[str, Any] | None = None
+    backend_plan: dict[str, Any] | None = None
 
     if use_real:
+        backend_plan = select_real_training_backend(payload, profile=profile)
         preflight = check_real_training_requirements(payload, profile)
+        backend_plan = preflight.get("backend_plan") if isinstance(preflight.get("backend_plan"), dict) else backend_plan
         if not preflight["ok"] and not bool(payload.get("allow_lightweight_fallback", True)):
             result = _training_failed("real_training_preflight_failed", "real training preflight failed: " + ", ".join(preflight["blockers"]))
         else:
-            result = _run_transformers_job(base_model, data_path, out_dir, max_steps, payload)
+            result = _run_transformers_job(base_model, data_path, out_dir, max_steps, payload, backend_plan=backend_plan)
     else:
         result = _write_portable_output(base_model, data_path, out_dir, max_steps)
 
@@ -60,13 +63,16 @@ def run_model_job(payload: dict[str, Any], profile: dict[str, Any], source_id: s
         "metrics": metrics,
         "backend_message": result["message"],
         "training_request": _compact_training_request(payload),
+        "training_backend_plan": backend_plan,
         "training_runtime_evidence": _training_runtime_evidence(
             payload=payload,
             profile=profile,
             result=result,
+            backend_plan=backend_plan,
             started_at=started_at,
             finished_at=metrics["created_at"],
         ),
+        "artifact_files": _artifact_files(out_dir),
     }
     if preflight is not None:
         record["real_training_preflight"] = preflight
@@ -100,8 +106,18 @@ def _write_portable_output(base_model: str, data_path: str | None, out_dir: Path
     }
 
 
-def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path, max_steps: int, payload: dict[str, Any]) -> dict[str, Any]:
+def _run_transformers_job(
+    base_model: str,
+    data_path: str | None,
+    out_dir: Path,
+    max_steps: int,
+    payload: dict[str, Any],
+    *,
+    backend_plan: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     allow_fallback = bool(payload.get("allow_lightweight_fallback", True))
+    backend_plan = backend_plan or select_real_training_backend(payload)
+    selected_backend = str(backend_plan.get("selected_backend") or "transformers")
     try:
         from datasets import Dataset  # type: ignore
         from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments  # type: ignore
@@ -133,7 +149,7 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
             tokenizer.pad_token = tokenizer.eos_token
 
         load_kwargs: dict[str, Any] = {}
-        qlora = bool(payload.get("qlora"))
+        qlora = selected_backend == "qlora"
         if qlora:
             try:
                 from transformers import BitsAndBytesConfig  # type: ignore
@@ -143,10 +159,10 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
                     return _training_failed("qlora_deps_missing", f"QLoRA dependencies missing: {exc}; real training not run")
 
         model = AutoModelForCausalLM.from_pretrained(base_model, **load_kwargs)
-        backend = "transformers"
+        backend = selected_backend if selected_backend in {"transformers", "lora", "qlora"} else "transformers"
         kind = "full_model"
 
-        if payload.get("peft") or payload.get("lora") or payload.get("qlora"):
+        if selected_backend in {"lora", "qlora"}:
             try:
                 from peft import LoraConfig, TaskType, get_peft_model, prepare_model_for_kbit_training  # type: ignore
                 if qlora:
@@ -160,7 +176,6 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
                     target_modules=payload.get("target_modules") or None,
                 )
                 model = get_peft_model(model, config)
-                backend = "qlora" if qlora else "lora"
                 kind = "adapter"
             except Exception as exc:
                 (out_dir / "peft_error.txt").write_text(str(exc), encoding="utf-8")
@@ -196,6 +211,7 @@ def _run_transformers_job(base_model: str, data_path: str | None, out_dir: Path,
             "message": f"local {backend} run finished",
             "training_metrics": getattr(train_result, "metrics", {}) or {},
             "trained_rows": len(rows),
+            "selected_backend": backend,
         }
     except Exception as exc:
         if not allow_fallback:
@@ -223,6 +239,7 @@ def _compact_training_request(payload: dict[str, Any]) -> dict[str, Any]:
         "peft",
         "lora",
         "qlora",
+        "training_backend",
         "requires_gpu",
         "allow_lightweight_fallback",
         "batch_size",
@@ -239,6 +256,7 @@ def _training_runtime_evidence(
     payload: dict[str, Any],
     profile: dict[str, Any],
     result: dict[str, Any],
+    backend_plan: dict[str, Any] | None,
     started_at: float,
     finished_at: float,
 ) -> dict[str, Any]:
@@ -252,6 +270,9 @@ def _training_runtime_evidence(
         "schema_version": "ailovanta.training_runtime_evidence.v1",
         "requested_real_training": requested_real,
         "requested_backend": _requested_backend(payload),
+        "selected_backend": (backend_plan or {}).get("selected_backend"),
+        "backend_selection_reason": (backend_plan or {}).get("reason"),
+        "backend_auto_selected": bool((backend_plan or {}).get("requested_backend") == "auto"),
         "requires_gpu": bool(payload.get("requires_gpu")),
         "allow_lightweight_fallback": bool(payload.get("allow_lightweight_fallback", True)),
         "actual_backend": actual_backend,
@@ -260,6 +281,8 @@ def _training_runtime_evidence(
         "fallback_used": fallback_used,
         "profile_has_gpu": bool(profile.get("has_gpu")),
         "profile_gpu_name": profile.get("gpu_name"),
+        "profile_gpu_memory_gb": profile.get("gpu_memory_gb"),
+        "profile_available_gpu_memory_gb": profile.get("available_gpu_memory_gb"),
         "torch_cuda_available": bool(cuda.get("available")),
         "cuda_device_count": cuda.get("device_count"),
         "cuda_devices": cuda.get("devices"),
@@ -272,6 +295,9 @@ def _training_runtime_evidence(
 
 
 def _requested_backend(payload: dict[str, Any]) -> str:
+    preferred = str(payload.get("training_backend") or "").strip().lower()
+    if preferred:
+        return preferred
     if payload.get("qlora"):
         return "qlora"
     if payload.get("peft") or payload.get("lora"):
@@ -411,3 +437,14 @@ def merge_outputs(items: list[dict[str, Any]], output_dir: str | Path) -> dict[s
         if loc.exists() and (loc / "adapter_config.json").exists():
             shutil.copyfile(loc / "adapter_config.json", target / f"adapter_config_{item.get('id', len(list(target.glob('adapter_config_*'))))}.json")
     return {"location": str(target), "metrics": {"score": merged["score"], "merged_count": len(items)}, "summary": "outputs merged"}
+
+
+def _artifact_files(out_dir: Path) -> list[dict[str, Any]]:
+    files: list[dict[str, Any]] = []
+    if not out_dir.exists():
+        return files
+    for path in sorted(out_dir.rglob("*")):
+        if not path.is_file():
+            continue
+        files.append({"path": str(path.relative_to(out_dir)).replace("\\", "/"), "bytes": path.stat().st_size})
+    return files

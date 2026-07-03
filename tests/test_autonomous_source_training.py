@@ -156,8 +156,9 @@ def test_autonomous_source_training_cycle_queues_job(monkeypatch, tmp_path: Path
     assert posted["body"]["kind"] == "lora_micro"
     assert posted["body"]["real"] is True
     assert posted["body"]["use_transformers"] is True
-    assert posted["body"]["peft"] is True
-    assert posted["body"]["lora"] is True
+    assert posted["body"]["training_backend"] == "auto"
+    assert "peft" not in posted["body"]
+    assert "lora" not in posted["body"]
     assert posted["body"]["requires_gpu"] is True
     assert posted["body"]["allow_lightweight_fallback"] is False
     assert posted["body"]["dataset_uri"].startswith("file://")
@@ -174,6 +175,7 @@ def test_autonomous_training_payload_supports_qlora() -> None:
     assert payload["kind"] == "lora_micro"
     assert payload["base_model"] == "codellama/CodeLlama-7b-hf"
     assert payload["real"] is True
+    assert payload["training_backend"] == "qlora"
     assert payload["qlora"] is True
     assert payload["requires_gpu"] is True
     assert payload["allow_lightweight_fallback"] is False
