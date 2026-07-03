@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from api.runtime_ref import to_local_path
+from api.transformers_artifact import transformers_model_load_ref
 
 SCHEMA = "ailovanta.candidate_code_generation_eval.v1"
 SUPPORTED_CODE_GENERATION_BACKENDS = {"transformers-local", "transformers-causal-lm"}
@@ -198,8 +199,19 @@ def _make_transformers_generator(binding: dict[str, Any]) -> dict[str, Any]:
         }
 
     try:
-        tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-        model = AutoModelForCausalLM.from_pretrained(str(model_path))
+        model_ref = transformers_model_load_ref(model_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_ref)
+        model = AutoModelForCausalLM.from_pretrained(model_ref)
+        if model_ref != str(model_path):
+            try:
+                from peft import PeftModel  # type: ignore
+            except Exception as exc:
+                return {
+                    "ok": False,
+                    "blocker": "peft_runtime_unavailable",
+                    "reason": "PEFT is required to load the LoRA/QLoRA adapter artifact: " + type(exc).__name__,
+                }
+            model = PeftModel.from_pretrained(model, str(model_path))
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model.to(device)
         model.eval()

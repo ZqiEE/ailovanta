@@ -6,6 +6,7 @@ from typing import Any
 
 from api.artifact_binding import ArtifactBindingStore
 from api.runtime_ref import to_local_path
+from api.transformers_artifact import peft_adapter_base_model_ref
 
 
 class BoundRuntimeUnavailable(RuntimeError):
@@ -57,8 +58,15 @@ class ArtifactBoundRuntime:
             from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
         except Exception as exc:
             raise BoundRuntimeUnavailable("transformers runtime requires torch and transformers") from exc
-        tokenizer = AutoTokenizer.from_pretrained(str(path))
-        model = AutoModelForCausalLM.from_pretrained(str(path))
+        model_ref = peft_adapter_base_model_ref(path) if path.is_dir() else None
+        tokenizer = AutoTokenizer.from_pretrained(model_ref or str(path))
+        model = AutoModelForCausalLM.from_pretrained(model_ref or str(path))
+        if model_ref:
+            try:
+                from peft import PeftModel  # type: ignore
+            except Exception as exc:
+                raise BoundRuntimeUnavailable("PEFT runtime is required to load LoRA/QLoRA adapter artifact") from exc
+            model = PeftModel.from_pretrained(model, str(path))
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model.to(device)
         model.eval()

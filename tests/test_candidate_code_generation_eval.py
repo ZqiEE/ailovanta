@@ -1,4 +1,7 @@
+import json
+
 from api.candidate_code_generation_eval import evaluate_candidate_code_generation
+from api.transformers_artifact import peft_adapter_base_model_ref
 
 
 def test_candidate_code_generation_eval_blocks_lightweight_backend() -> None:
@@ -51,3 +54,29 @@ def test_candidate_code_generation_eval_fails_bad_generated_code() -> None:
     assert "benchmark_failed" in result["blockers"]
     assert result["score"] < 1.0
     assert any(not case["passed"] for case in result["cases"])
+
+
+def test_adapter_base_model_ref_prefers_training_output_for_lora(tmp_path) -> None:
+    model_dir = tmp_path / "adapter"
+    model_dir.mkdir()
+    (model_dir / "adapter_config.json").write_text(json.dumps({"base_model_name_or_path": "wrong-base"}), encoding="utf-8")
+    (model_dir / "output.json").write_text(
+        json.dumps(
+            {
+                "schema": "ailovanta.model_output.v1",
+                "base_model": "right-base",
+                "metrics": {"backend": "lora"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert peft_adapter_base_model_ref(model_dir) == "right-base"
+
+
+def test_adapter_base_model_ref_falls_back_to_adapter_config(tmp_path) -> None:
+    model_dir = tmp_path / "adapter"
+    model_dir.mkdir()
+    (model_dir / "adapter_config.json").write_text(json.dumps({"base_model_name_or_path": "adapter-base"}), encoding="utf-8")
+
+    assert peft_adapter_base_model_ref(model_dir) == "adapter-base"
