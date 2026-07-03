@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from api.main import app, runtime_registry, store
+from api.model_job import run_model_job
 from api.node_trust import NodeTrustStore
 from api.storage import SchedulerStore
 
@@ -123,6 +124,68 @@ def test_training_job_and_model_version() -> None:
             assert model.json()["model"]["source_job_id"] == job_id
         finally:
             store.path = original_path
+
+
+def test_training_job_result_auto_ingests_artifact_and_worker_receipt(monkeypatch, tmp_path) -> None:
+    local_store = SchedulerStore(tmp_path / "scheduler.sqlite3")
+    original_path = store.path
+    store.path = local_store.path
+    monkeypatch.setenv("AILOVANTA_ARTIFACT_BINDINGS_PATH", str(tmp_path / "artifact_bindings.sqlite3"))
+    monkeypatch.setenv("AILOVANTA_TRAINING_WORKER_RESULT_PATH", str(tmp_path / "training_receipts.sqlite3"))
+    monkeypatch.setenv("AILOVANTA_REPLICA_BOOK_PATH", str(tmp_path / "replica_book.json"))
+    dataset = tmp_path / "train.jsonl"
+    dataset.write_text('{"text":"def add(left, right):\\n    return left + right","record_kind":"code"}\n', encoding="utf-8")
+    try:
+        client = TestClient(app)
+        node = client.post(
+            "/nodes/register",
+            json={
+                "node_id": "node-auto-ingest",
+                "device_name": "pytest-gpu",
+                "cpu_threads": 8,
+                "memory_gb": 16,
+                "has_gpu": True,
+                "gpu_name": "pytest-gpu",
+                "contribution_percent": 90,
+            },
+        ).json()
+        created = client.post(
+            "/training/jobs",
+            json={
+                "kind": "lora_micro",
+                "name": "auto-ingest",
+                "dataset_uri": "file://" + str(dataset),
+                "base_model": "ailovanta-bootstrap",
+                "max_steps": 2,
+                "output_dir": str(tmp_path / "model"),
+                "allow_lightweight_fallback": True,
+                "priority": 500,
+            },
+        ).json()
+        assigned = client.get("/jobs/next", params={"node_id": node["node_id"]}).json()["job"]
+        output = run_model_job(assigned["payload"], {"device_name": "pytest-gpu", "cpu_threads": 8, "memory_gb": 16, "has_gpu": True, "gpu_name": "pytest-gpu"}, assigned["id"])
+
+        response = client.post(
+            "/jobs/result",
+            json={
+                "node_id": node["node_id"],
+                "job_id": assigned["id"],
+                "status": "ok",
+                "output_summary": "structured training output attached",
+                "training_output": output,
+                "worker_profile": {"device_name": "pytest-gpu", "cpu_threads": 8, "memory_gb": 16, "has_gpu": True, "gpu_name": "pytest-gpu"},
+            },
+        )
+
+        assert created["ok"] is True
+        assert response.status_code == 200
+        ingest = response.json()["training_ingest"]
+        assert ingest["receipt"]["passed"] is True
+        assert ingest["binding"]["backend_kind"] == "lightweight-ngram"
+        assert ingest["binding"]["metadata"]["training_worker_receipt"]["receipt_id"] == ingest["receipt"]["receipt_id"]
+        assert ingest["binding"]["metadata"]["promotion_gate"]["ok"] is False
+    finally:
+        store.path = original_path
 
 
 def test_training_job_preserves_real_lora_gpu_payload_and_routes_to_gpu() -> None:

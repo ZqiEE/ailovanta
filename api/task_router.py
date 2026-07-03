@@ -9,7 +9,7 @@ HEAVY_JOB_TYPES = {"lora_micro", "rag_import", "evaluation_batch", "model_shard"
 class TaskRouter:
     def job_priority(self, job: dict) -> int:
         payload = self.payload(job)
-        if "priority" in payload:
+        if payload.get("priority") is not None:
             return int(payload["priority"])
         job_type = job.get("job_type") or job.get("type")
         if job_type == "model_shard":

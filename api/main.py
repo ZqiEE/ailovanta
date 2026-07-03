@@ -27,6 +27,8 @@ from api.runtime_router import ModelManifest, RuntimeNodeProfile, RuntimeRequest
 from api.runtime_store import RuntimeStore
 from api.store_factory import create_scheduler_store, store_status
 from api.training import TrainingKind, TrainingPlanner
+from api.training_artifact_binding import attach_training_worker_receipt, bind_local_training_artifact
+from api.training_worker_result_validator import build_training_worker_result
 from api.training_worker_result_validator import TrainingWorkerResultStore, validate_training_worker_result
 from api.training_job_export import export_training_job
 from api.training_pipeline import run_training_pipeline
@@ -76,6 +78,8 @@ class JobResult(BaseModel):
     job_id: str
     status: Literal["ok", "failed"]
     output_summary: str
+    training_output: dict[str, Any] | None = None
+    worker_profile: dict[str, Any] | None = None
 
 
 class TrainingJobRequest(BaseModel):
@@ -462,7 +466,46 @@ def submit_result(body: JobResult, x_ailovanta_node_token: str | None = Header(d
     result = store.submit_result(body.model_dump())
     verification = verifier.verify(result)
     stored = store.record_verification(result, verification["score"], verification["passed"], verification["reason"])
-    return {"ok": True, "result": result, "verification": stored}
+    training_ingest = ingest_training_job_result(body)
+    return {"ok": True, "result": result, "verification": stored, "training_ingest": training_ingest}
+
+
+def ingest_training_job_result(body: JobResult) -> dict[str, Any] | None:
+    job = store.get_job(body.job_id)
+    job_type = job.get("type") or job.get("job_type") if job else None
+    if not job or job_type not in TRAINING_JOB_TYPES or not isinstance(body.training_output, dict):
+        return None
+
+    output = body.training_output
+    profile = body.worker_profile if isinstance(body.worker_profile, dict) else store.get_node(body.node_id) or {}
+    binding = bind_local_training_artifact(output)
+    worker_result = build_training_worker_result(job=_job_for_worker_result(job), node_id=body.node_id, profile=profile, output=output, binding=binding)
+    receipt = validate_training_worker_result(worker_result, store=training_worker_result_store())
+    if binding and receipt:
+        binding = attach_training_worker_receipt(binding, receipt) or binding
+    return {
+        "ok": bool(receipt.get("passed")) if receipt else False,
+        "binding": binding,
+        "worker_result": worker_result,
+        "receipt": receipt,
+    }
+
+
+def _job_for_worker_result(job: dict[str, Any]) -> dict[str, Any]:
+    payload = job.get("payload") if isinstance(job.get("payload"), dict) else {}
+    if not payload and job.get("payload_json"):
+        import json
+
+        try:
+            payload = json.loads(str(job.get("payload_json") or "{}"))
+        except json.JSONDecodeError:
+            payload = {}
+    return {
+        **job,
+        "id": job.get("id") or job.get("job_id"),
+        "type": job.get("type") or job.get("job_type"),
+        "payload": payload,
+    }
 
 
 @app.post("/training/jobs")

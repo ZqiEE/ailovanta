@@ -169,8 +169,8 @@ def main() -> int:
             output = make_output(job, profile)
             if output.get("status") == "failed":
                 summary = f"node failed task on {profile['device_name']}; reason={output.get('notes')}"
-                result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "failed", "output_summary": summary})
-                training_worker_validation = submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=None)
+                result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "failed", "output_summary": summary, "training_output": output, "worker_profile": profile})
+                training_worker_validation = (result.get("training_ingest") if isinstance(result.get("training_ingest"), dict) else None) or submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=None)
                 print(json.dumps({"job_id": job_id, "result": result, "training_output": output, "training_worker_validation": training_worker_validation}, ensure_ascii=False, indent=2))
                 post(args.server, "/nodes/heartbeat", {"node_id": node_id, "status": "online"})
                 if args.once:
@@ -181,10 +181,11 @@ def main() -> int:
             if (job.get("payload") or {}).get("catalog", True):
                 catalog_result = try_post(args.server, "/catalog/items", output)
             summary = f"node finished task on {profile['device_name']}; output={output['location']}"
-            result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary})
-            binding = bind_local_training_artifact(output)
-            training_worker_validation = submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=binding)
-            if binding and training_worker_validation and training_worker_validation.get("receipt"):
+            result = post(args.server, "/jobs/result", {"node_id": node_id, "job_id": job_id, "status": "ok", "output_summary": summary, "training_output": output, "worker_profile": profile})
+            training_ingest = result.get("training_ingest") if isinstance(result.get("training_ingest"), dict) else None
+            binding = training_ingest.get("binding") if training_ingest else bind_local_training_artifact(output)
+            training_worker_validation = training_ingest or submit_training_worker_result(args.server, job=job, node_id=node_id, profile=profile, output=output, binding=binding)
+            if not training_ingest and binding and training_worker_validation and training_worker_validation.get("receipt"):
                 binding = attach_training_worker_receipt(binding, training_worker_validation.get("receipt")) or binding
             failure_action_submissions = submit_failure_actions(args.server, binding)
             print(json.dumps({"job_id": job_id, "result": result, "catalog": catalog_result, "runtime_binding": binding, "training_worker_validation": training_worker_validation, "failure_action_submissions": failure_action_submissions}, ensure_ascii=False, indent=2))

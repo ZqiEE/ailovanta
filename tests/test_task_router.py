@@ -12,6 +12,12 @@ def test_gpu_job_requires_gpu_node() -> None:
     assert reason == "requires gpu"
 
 
+def test_null_priority_uses_default_priority() -> None:
+    router = TaskRouter()
+
+    assert router.job_priority({"job_type": "lora_micro", "payload_json": '{"priority": null}'}) == 80
+
+
 def test_cpu_job_matches_cpu_node() -> None:
     router = TaskRouter()
     cpu_node = {"node_id": "cpu", "has_gpu": False, "memory_gb": 16, "cpu_threads": 8}
