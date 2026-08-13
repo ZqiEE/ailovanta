@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.coding_agent import CodingAgent, CodingAgentError
+from api.model_status import coding_model_status
 from api.project_changes import apply_changes, project_diff
 from api.project_store import ProjectStore, ProjectStoreError
 
@@ -43,10 +44,12 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
 
     @router.get("/status")
     def status() -> dict[str, Any]:
+        model_state = coding_model_status(agent.model)
         return {
-            "ok": True,
+            "ok": bool(model_state.get("available") and model_state.get("model_present")),
             "product": "Ailovanta Coding",
             "model": agent.model.config.model,
+            "model_runtime": model_state,
             "modes": ["auto", "frontend", "backend", "repair"],
             "max_files": projects.max_files,
             "max_project_bytes": projects.max_project_bytes,
@@ -61,23 +64,27 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
         return {"projects": projects.list(owner)}
 
     @router.get("/projects/{project_id}")
-    def get_project(project_id: str) -> dict[str, Any]:
-        return _call(projects.get, project_id)
+    def get_project(project_id: str, owner: str) -> dict[str, Any]:
+        return _owned(projects, project_id, owner)
 
     @router.get("/projects/{project_id}/file")
-    def read_file(project_id: str, path: str) -> dict[str, Any]:
+    def read_file(project_id: str, path: str, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         return _call(projects.read_file, project_id, path)
 
     @router.put("/projects/{project_id}/file")
-    def write_file(project_id: str, body: FileWriteRequest) -> dict[str, Any]:
+    def write_file(project_id: str, body: FileWriteRequest, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         return _call(projects.put_file, project_id, body.path, body.content)
 
     @router.delete("/projects/{project_id}/file")
-    def delete_file(project_id: str, path: str) -> dict[str, Any]:
+    def delete_file(project_id: str, path: str, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         return _call(projects.delete_file, project_id, path)
 
     @router.post("/projects/{project_id}/import")
-    def import_files(project_id: str, body: ImportFilesRequest) -> dict[str, Any]:
+    def import_files(project_id: str, body: ImportFilesRequest, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         try:
             if not body.files or len(body.files) > projects.max_files:
                 raise ProjectStoreError("invalid import file count")
@@ -94,7 +101,8 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.post("/projects/{project_id}/propose")
-    def propose(project_id: str, body: ProposeRequest) -> dict[str, Any]:
+    def propose(project_id: str, body: ProposeRequest, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         try:
             return agent.propose(project_id, body.task, body.mode)
         except (CodingAgentError, ProjectStoreError) as exc:
@@ -103,21 +111,24 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             raise HTTPException(status_code=status_code, detail=message) from exc
 
     @router.post("/projects/{project_id}/apply")
-    def apply(project_id: str, body: ApplyRequest) -> dict[str, Any]:
+    def apply(project_id: str, body: ApplyRequest, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         try:
             return apply_changes(projects, project_id, body.changes)
         except ProjectStoreError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.get("/projects/{project_id}/diff")
-    def diff(project_id: str) -> dict[str, Any]:
+    def diff(project_id: str, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
         try:
             return {"project_id": project_id, "diff": project_diff(projects, project_id)}
         except ProjectStoreError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.get("/projects/{project_id}/export")
-    def export(project_id: str) -> StreamingResponse:
+    def export(project_id: str, owner: str) -> StreamingResponse:
+        _owned(projects, project_id, owner)
         try:
             data = projects.export_zip(project_id)
         except ProjectStoreError as exc:
@@ -126,6 +137,13 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
         return StreamingResponse(io.BytesIO(data), media_type="application/zip", headers=headers)
 
     return router
+
+
+def _owned(projects: ProjectStore, project_id: str, owner: str) -> dict[str, Any]:
+    project = _call(projects.get, project_id)
+    if not owner or project.get("owner") != owner:
+        raise HTTPException(status_code=404, detail="project not found")
+    return project
 
 
 def _call(fn, *args):
