@@ -2,18 +2,22 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install validate test api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
+.PHONY: install validate test api legacy-api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
 
 validate:
-	$(PYTHON) validate.py
+	$(PYTHON) -m compileall -q api node_client scripts
+	$(PYTHON) -m pytest -q
 
 test:
 	$(PYTHON) -m pytest -q
 
 api:
+	uvicorn api.product_app:app --reload --host $(API_HOST) --port $(API_PORT)
+
+legacy-api:
 	uvicorn api.main:app --reload --host $(API_HOST) --port $(API_PORT)
 
 node:
