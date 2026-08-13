@@ -54,6 +54,7 @@ class RightsProofRegistry:
         if unknown_uses:
             raise RightsProofError(f"unknown allowed_uses: {sorted(unknown_uses)}")
 
+        item.setdefault("agreement_id", "")
         item.setdefault("status", ACTIVE_STATUS)
         item.setdefault("created_at", datetime.now(timezone.utc).isoformat())
         item.setdefault("allowed_model_types", ["ailovanta-code"])
