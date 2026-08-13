@@ -1,3 +1,4 @@
+from api.coding_autonomous_loop import CodingAutonomousLoop, CodingTrainingState
 from api.coding_benchmark_suite import score_domain, score_unified
 from api.coding_factory import CodingFactoryPlanner
 
@@ -49,3 +50,14 @@ def test_frontend_scorecard_is_weighted():
         },
     )
     assert result["score"] > 0.8
+
+
+def test_autonomous_loop_can_unify_after_all_experts_exist():
+    loop = CodingAutonomousLoop()
+    state = CodingTrainingState(base_model="base-model")
+    loop.record_expert_result(state, expert="frontend", score=0.81, checkpoint="ckpt-front")
+    loop.record_expert_result(state, expert="backend", score=0.82, checkpoint="ckpt-back")
+    loop.record_expert_result(state, expert="repair", score=0.83, checkpoint="ckpt-repair")
+    assert loop.can_unify(state)
+    job = loop.unification_job(state)
+    assert job["job_type"] == "coding_unify"
