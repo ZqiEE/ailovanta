@@ -1,11 +1,21 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Literal
 from uuid import uuid4
 
 
-TrainingKind = Literal["rag_import", "lora_micro", "evaluation_batch", "private_memory_tune"]
+TrainingKind = Literal[
+    "rag_import",
+    "lora_micro",
+    "evaluation_batch",
+    "private_memory_tune",
+    "coding_frontend_rl",
+    "coding_backend_rl",
+    "coding_repair_rl",
+    "coding_unify",
+    "coding_eval",
+]
 
 
 @dataclass
