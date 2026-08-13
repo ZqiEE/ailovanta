@@ -2,15 +2,34 @@
 
 Ailovanta is being repurposed from a generic distributed-AI network into an autonomous coding model factory.
 
-## Target
+## Core product thesis
 
-One owned production coding model is trained through three specialist branches:
+The product exists to close the gaps between the strongest coding assistants by combining three complementary capability peaks into one owned coding model:
 
-- Frontend: visual UI, browser rendering, interaction and responsive quality.
-- Backend: repository-level implementation, APIs, databases, services and tests.
-- Repair: bug reproduction, root-cause localization, patching and regression checks.
+- Frontend teacher stream: visual UI, browser rendering, interaction, responsive quality and product taste.
+- Backend teacher stream: repository-level implementation, APIs, databases, services, architecture and long-horizon engineering.
+- Repair teacher stream: bug reproduction, root-cause localization, patching, tests and regression control.
 
-The three specialists are training branches. The deployment target is one unified Ailovanta model.
+The three streams are training-time specialists. The deployment target is one unified Ailovanta-owned checkpoint.
+
+## Financing MVP requirement
+
+The financing MVP MUST contain a real trained student checkpoint. A dashboard-only training simulator, router-only product, or generic open model wrapper is not sufficient.
+
+The first student may be small (for example a 7B/14B open-weight coding base), but it must demonstrate real weight adaptation from all three teacher streams and measurable improvement over the untouched base model.
+
+Minimum proof:
+
+1. Collect a small, high-density frontend teacher trajectory set.
+2. Collect a small, high-density backend engineering trajectory set.
+3. Collect a small, high-density repair/debug trajectory set.
+4. Train three specialist adapters/checkpoints from the same base.
+5. Unify the three specialists into one student checkpoint.
+6. Evaluate base vs specialists vs unified student on held-out frontend, backend and repair tasks.
+7. Reject the unified model if any domain falls below its minimum floor.
+8. Serve the unified student in the public coding product.
+
+The investor demo must therefore show both a working product and evidence that Ailovanta owns a model artifact whose weights changed through the three-stream training process.
 
 ## Reused infrastructure
 
@@ -34,4 +53,4 @@ CPU nodes run repositories, builds and tests. Consumer GPU nodes produce rollout
 
 ## Product direction
 
-The public product becomes a free-first coding assistant. Optional compute contributors can exchange useful idle compute for product credits or higher service levels. More users should create more verified feedback and potentially more compute supply, strengthening the owned model over time.
+The public product becomes a free-first coding assistant powered by the unified Ailovanta student model. Optional compute contributors can exchange useful idle compute for product credits or higher service levels. More users should create more verified feedback and potentially more compute supply, strengthening the owned model over time.
