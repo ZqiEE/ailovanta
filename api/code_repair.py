@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 from time import time
 from typing import Any
@@ -22,6 +23,8 @@ def check_command(command: str) -> list[str]:
     command = command.strip()
     if command not in ALLOWED_TEST_COMMANDS:
         raise CodeRepairError("test command is not allowed")
+    if command in {"pytest", "python -m pytest"}:
+        return [sys.executable, "-m", "pytest"]
     return shlex.split(command)
 
 
