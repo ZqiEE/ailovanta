@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from api.backup_store import BackupStore
 
@@ -22,8 +22,9 @@ class RestoreIn(BaseModel):
 
 
 @router.post("")
-def create_backup(body: BackupCreateIn = Field(default_factory=BackupCreateIn)) -> dict[str, Any]:
-    return store.create(label=body.label, paths=body.paths)
+def create_backup(body: BackupCreateIn | None = None) -> dict[str, Any]:
+    request = body or BackupCreateIn()
+    return store.create(label=request.label, paths=request.paths)
 
 
 @router.get("")
@@ -42,5 +43,6 @@ def verify_backup(snapshot_id: str) -> dict[str, Any]:
 
 
 @router.post("/{snapshot_id}/restore")
-def restore_backup(snapshot_id: str, body: RestoreIn = Field(default_factory=RestoreIn)) -> dict[str, Any]:
-    return store.restore(snapshot_id, dry_run=body.dry_run)
+def restore_backup(snapshot_id: str, body: RestoreIn | None = None) -> dict[str, Any]:
+    request = body or RestoreIn()
+    return store.restore(snapshot_id, dry_run=request.dry_run)
