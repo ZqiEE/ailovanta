@@ -9,8 +9,9 @@ import httpx
 @dataclass
 class OllamaConfig:
     base_url: str = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
-    model: str = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
-    timeout_seconds: float = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "30"))
+    model: str = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+    timeout_seconds: float = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120"))
+    context_length: int = int(os.getenv("OLLAMA_CONTEXT_LENGTH", "32768"))
 
 
 class OllamaUnavailable(RuntimeError):
@@ -18,8 +19,6 @@ class OllamaUnavailable(RuntimeError):
 
 
 class OllamaAdapter:
-    """Temporary local bootstrap model adapter for the public MVP."""
-
     def __init__(self, config: OllamaConfig | None = None) -> None:
         self.config = config or OllamaConfig()
 
@@ -27,25 +26,23 @@ class OllamaAdapter:
         return self.chat_messages([{"role": "user", "content": prompt}], mode=mode, memory=memory)
 
     def chat_messages(self, messages: list[dict], mode: str = "open", memory: list[str] | None = None) -> str:
-        system = self._system_prompt(mode, memory or [])
         clean_messages = self._clean_messages(messages)
         if not any(message["role"] == "user" for message in clean_messages):
             raise OllamaUnavailable("at least one user message is required")
         payload = {
             "model": self.config.model,
             "stream": False,
-            "messages": [{"role": "system", "content": system}, *clean_messages],
+            "messages": [{"role": "system", "content": self._system_prompt(mode, memory or [])}, *clean_messages],
+            "options": {"num_ctx": self.config.context_length, "temperature": 0.2},
         }
         try:
             with httpx.Client(timeout=self.config.timeout_seconds) as client:
                 response = client.post(f"{self.config.base_url}/api/chat", json=payload)
                 response.raise_for_status()
                 data = response.json()
-        except Exception as exc:  # local runtime should degrade gracefully
+        except Exception as exc:
             raise OllamaUnavailable(str(exc)) from exc
-
-        message = data.get("message") or {}
-        content = message.get("content")
+        content = str((data.get("message") or {}).get("content") or "").strip()
         if not content:
             raise OllamaUnavailable("empty Ollama response")
         return content
@@ -63,13 +60,15 @@ class OllamaAdapter:
     @staticmethod
     def _system_prompt(mode: str, memory: list[str]) -> str:
         memory_text = "\n".join(f"- {item}" for item in memory[-8:]) or "No stored memory."
+        if mode == "coding":
+            return (
+                "You are Ailovanta, one unified coding model. Your job is to build, modify and repair real software. "
+                "Be precise, inspect project context before changing code, preserve unrelated behavior, and prefer robust minimal changes. "
+                "You combine frontend product quality, repository-level backend engineering, and debugging discipline in one model. "
+                "Never claim a test or command ran unless execution output was actually provided."
+            )
         return (
-            "You are Ailovanta, an AI assistant inside a local distributed compute MVP. "
-            "Answer directly and practically. "
-            "Model boundary: current inference may be served by a temporary local bootstrap model through Ollama. "
-            "Ailovanta-owned foundation model status depends on verified runtime manifests promoted from core training artifacts. "
-            f"Current mode: {mode}.\n"
-            f"Local user memory:\n{memory_text}\n"
-            "Focus on AI runtime, distributed compute, node networks, training orchestration, and developer execution. "
-            "Use the provided conversation history when answering follow-up questions."
+            "You are Ailovanta, a practical coding assistant. Answer directly, focus on software creation and debugging, "
+            "and use conversation history when it helps.\n"
+            f"Current mode: {mode}.\nLocal user memory:\n{memory_text}"
         )
