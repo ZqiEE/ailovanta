@@ -6,12 +6,15 @@ from api.runtime_router import RuntimeRequest
 from api.runtime_store import RuntimeStore
 
 
+VALID_ARTIFACT_HASH = "sha256:" + ("b" * 64)
+
+
 def payload(ref: str) -> dict:
     return {
         "plan": {"model": {"model_id": "ailovanta-owned"}},
         "artifact": {
             "artifact_id": "artifact_1",
-            "artifact_hash": "sha256:artifact",
+            "artifact_hash": VALID_ARTIFACT_HASH,
             "model_id": "ailovanta-owned",
             "version": "candidate",
             "source_plan_id": "plan_1",
