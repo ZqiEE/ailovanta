@@ -6,9 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
@@ -18,4 +16,4 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "api.main_release_ready:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "api.product_app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
