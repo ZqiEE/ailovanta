@@ -1,0 +1,31 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      AILOVANTA_RUNTIME_MODE: control-plane
+      AILOVANTA_ZERO_CASH_MODE: "true"
+      AILOVANTA_PROJECT_ROOT: /app/runtime_data/control_projects
+      AILOVANTA_REQUIRE_NODE_PROOF: "true"
+    volumes:
+      - ailovanta_control_data:/app/runtime_data
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      AILOVANTA_DOMAIN: ${AILOVANTA_DOMAIN:?set AILOVANTA_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  ailovanta_control_data:
+  caddy_data:
+  caddy_config:
