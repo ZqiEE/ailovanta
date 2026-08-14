@@ -8,6 +8,7 @@ import sys
 import time
 import webbrowser
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -128,6 +129,7 @@ def main() -> None:
     )
     parser.add_argument("--host", default="127.0.0.1", help="Keep 127.0.0.1 for private local use.")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--project", default=None, help="Open/link an existing local repository directory.")
     parser.add_argument("--model", default=None, help="Override the hardware-selected Ollama model.")
     parser.add_argument("--context", type=int, default=None, help="Override model context length.")
     parser.add_argument("--yes", action="store_true", help="Download the recommended model without prompting.")
@@ -180,9 +182,24 @@ def main() -> None:
         "AILOVANTA_PROJECT_ROOT", "runtime_data/local_coding_projects"
     )
 
+    project_id: str | None = None
+    if args.project:
+        from api.local_workspace import open_local_workspace
+        from api.project_store import ProjectStore
+
+        linked = open_local_workspace(ProjectStore(), args.project, owner="local")
+        project_id = str(linked["project_id"])
+        print(f"- linked repo: {linked.get('source_path')}")
+        print(f"- workspace: {linked.get('workspace_open')}")
+        if linked.get("workspace_open") == "reused_unsynced_changes":
+            print("- unsynced Ailovanta changes were preserved instead of refreshing from disk")
+
     import uvicorn
 
-    url = f"http://{args.host}:{args.port}/"
+    query = {"owner": "local"}
+    if project_id:
+        query["project"] = project_id
+    url = f"http://{args.host}:{args.port}/?{urlencode(query)}"
     if not args.no_browser:
         import threading
 
