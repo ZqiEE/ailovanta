@@ -13,6 +13,7 @@ from api.local_usage_guard import LocalUsageGuard
 from api.model_status import coding_model_status
 from api.project_changes import apply_changes, project_diff
 from api.project_store import ProjectStore, ProjectStoreError
+from api.runtime_mode import runtime_privacy_status
 
 
 class CreateProjectRequest(BaseModel):
@@ -53,12 +54,17 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             "product": "Ailovanta Coding",
             "model": agent.model.config.model,
             "model_runtime": model_state,
+            "privacy": runtime_privacy_status(),
             "cost": zero_cash_status(),
             "local_usage_policy": usage_guard.policy(),
             "modes": ["auto", "frontend", "backend", "repair"],
             "max_files": projects.max_files,
             "max_project_bytes": projects.max_project_bytes,
         }
+
+    @router.get("/privacy")
+    def privacy_status() -> dict[str, Any]:
+        return runtime_privacy_status()
 
     @router.get("/cost")
     def cost_status() -> dict[str, Any]:
@@ -118,7 +124,9 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
         if not usage_guard.acquire_model():
             raise HTTPException(status_code=429, detail="local model is busy; try again shortly")
         try:
-            return agent.propose(project_id, body.task, body.mode)
+            result = agent.propose(project_id, body.task, body.mode)
+            result["privacy"] = runtime_privacy_status()
+            return result
         except (CodingAgentError, ProjectStoreError) as exc:
             message = str(exc)
             status_code = 503 if "unavailable" in message else 400
