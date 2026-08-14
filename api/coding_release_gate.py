@@ -14,6 +14,7 @@ REQUIRED_FILES = (
     "static/coding.js",
     "static/import_project.js",
     "static/privacy_status.js",
+    "static/model_integrity.js",
     "start-local.sh",
     "start-local.ps1",
     "requirements-coding.txt",
@@ -24,13 +25,17 @@ REQUIRED_FILES = (
     "api/coding_agent.py",
     "api/project_store.py",
     "api/project_changes.py",
+    "api/model_lock.py",
     "api/network_routes.py",
+    "api/node_capability_store.py",
+    "api/ip_rate_guard.py",
     "api/coding_factory.py",
     "api/coding_autonomous_loop.py",
     "api/coding_benchmark_suite.py",
     "node_client/local_runtime.py",
     "node_client/client_real.py",
     "node_client/coding_inference_worker.py",
+    "node_client/ollama_inventory.py",
 )
 
 
@@ -111,11 +116,13 @@ print("zero-GPU control plane isolated")
         blockers.append("control_plane_isolation_failed")
 
     launcher_code = r'''
+from api.model_lock import ModelLockStore
 from node_client.local_runtime import main
 from node_client.model_profile import recommend_local_model
 from node_client.coding_inference_worker import ALLOWED_NETWORK_PRIVACY_SCOPES
+from node_client.ollama_inventory import installed_ollama_models
 assert ALLOWED_NETWORK_PRIVACY_SCOPES == {"public", "synthetic"}
-print("local launcher and community worker privacy policy import")
+print("local launcher, model lock, and community worker policy import")
 '''
     checks["local_launcher"] = _run(base, launcher_code)
     if not checks["local_launcher"]["ok"]:
