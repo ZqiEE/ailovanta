@@ -25,9 +25,18 @@ jobs:
           python - <<'PY'
           from api.product_app import app
           paths = {route.path for route in app.routes}
-          required = {"/", "/app", "/coding/status", "/coding/projects"}
+          required = {"/", "/app", "/coding/status", "/coding/cost", "/coding/projects"}
           missing = required - paths
           if missing:
               raise SystemExit(f"missing product routes: {sorted(missing)}")
           print("coding product routes ready")
           PY
+      - name: Validate production compose
+        run: |
+          docker compose -f docker-compose.coding.yml config -q
+          AILOVANTA_DOMAIN=code.example.com docker compose -f docker-compose.coding.yml --profile public config -q
+          docker compose -f docker-compose.coding.yml -f docker-compose.gpu.yml config -q
+      - name: Build lean production image
+        run: docker build -t ailovanta-coding-ci .
+      - name: Smoke import lean production image
+        run: docker run --rm ailovanta-coding-ci python -c "from api.product_app import app; print(app.title)"
