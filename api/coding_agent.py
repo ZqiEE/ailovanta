@@ -32,7 +32,15 @@ class CodingAgent:
         clean_task = task.strip()
         if not clean_task:
             raise CodingAgentError("task is required")
-        selected = select_project_context(self.store, project_id, clean_task)
+
+        context_char_budget = self._context_char_budget()
+        selected = select_project_context(
+            self.store,
+            project_id,
+            clean_task,
+            max_chars=context_char_budget,
+        )
+        context_chars_used = len(selected["context"])
         prompt = self._prompt(clean_task, mode, selected["context"])
         try:
             answer = self.model.chat_messages([{"role": "user", "content": prompt}], mode="coding", memory=[])
@@ -41,31 +49,45 @@ class CodingAgent:
         payload = self._parse(answer)
         changes = self._validate(payload.get("changes"))
         reviewed = False
+        review_skipped_reason: str | None = None
 
         if self._self_review_enabled() and changes:
+            first_payload = {
+                "summary": str(payload.get("summary") or "Code changes proposed"),
+                "explanation": str(payload.get("explanation") or ""),
+                "changes": changes,
+            }
             review_prompt = self._review_prompt(
                 task=clean_task,
                 mode=mode,
                 context=selected["context"],
-                first_payload={
-                    "summary": str(payload.get("summary") or "Code changes proposed"),
-                    "explanation": str(payload.get("explanation") or ""),
-                    "changes": changes,
-                },
+                first_payload=first_payload,
             )
-            try:
-                reviewed_answer = self.model.chat_messages(
-                    [{"role": "user", "content": review_prompt}], mode="coding", memory=[]
+            review_prompt_budget = self._review_prompt_char_budget()
+            if len(review_prompt) > review_prompt_budget:
+                review_skipped_reason = (
+                    "self-review prompt too large for the model context; skipped instead of truncating proposal JSON"
                 )
-                reviewed_payload = self._parse(reviewed_answer)
-                reviewed_changes = self._validate(reviewed_payload.get("changes"))
-                if reviewed_changes:
-                    payload = reviewed_payload
-                    changes = reviewed_changes
-                    reviewed = True
-            except (OllamaUnavailable, CodingAgentError):
-                # A failed critique must never destroy a usable first pass.
-                reviewed = False
+            else:
+                try:
+                    reviewed_answer = self.model.chat_messages(
+                        [{"role": "user", "content": review_prompt}], mode="coding", memory=[]
+                    )
+                    reviewed_payload = self._parse(reviewed_answer)
+                    reviewed_changes = self._validate(reviewed_payload.get("changes"))
+                    if reviewed_changes:
+                        payload = reviewed_payload
+                        changes = reviewed_changes
+                        reviewed = True
+                    else:
+                        review_skipped_reason = "self-review returned no usable changes"
+                except (OllamaUnavailable, CodingAgentError):
+                    # A failed critique must never destroy a usable first pass.
+                    review_skipped_reason = "self-review failed; preserved the usable first pass"
+        elif not self._self_review_enabled():
+            review_skipped_reason = "self-review disabled"
+        elif not changes:
+            review_skipped_reason = "no changes to review"
 
         return {
             "summary": str(payload.get("summary") or "Code changes proposed"),
@@ -74,9 +96,32 @@ class CodingAgent:
             "model": self.model.config.model,
             "context_files": selected["selected_files"],
             "project_file_count": selected["total_files"],
+            "context_char_budget": context_char_budget,
+            "context_chars_used": context_chars_used,
             "self_reviewed": reviewed,
+            "review_skipped_reason": review_skipped_reason,
             "inference_passes": 2 if reviewed else 1,
         }
+
+    def _context_length(self) -> int:
+        try:
+            return max(1024, int(getattr(self.model.config, "context_length", 32768)))
+        except (TypeError, ValueError):
+            return 32768
+
+    def _context_char_budget(self) -> int:
+        # Use a deliberately conservative repository budget. Roughly 1.6 source
+        # characters per model token reserves substantial room for instructions,
+        # task text, generated output, and tokenizer variance instead of relying
+        # on Ollama to silently truncate the least convenient part of the prompt.
+        return int(self._context_length() * 1.6)
+
+    def _review_prompt_char_budget(self) -> int:
+        # The review includes both repository context and the complete first-pass
+        # JSON. Cap it below a rough 4 chars/token upper estimate so the model has
+        # output headroom. If the full JSON cannot fit, skip review rather than
+        # truncate a file-level changeset into invalid or misleading JSON.
+        return int(self._context_length() * 3.2)
 
     @staticmethod
     def _self_review_enabled() -> bool:
