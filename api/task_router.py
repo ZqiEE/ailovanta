@@ -25,6 +25,7 @@ class TaskRouter:
         job_type = job.get("job_type") or job.get("type")
         requires_gpu = bool(payload.get("requires_gpu")) or job_type in GPU_JOB_TYPES
         min_memory_gb = float(payload.get("min_memory_gb", 0) or 0)
+        min_gpu_memory_gb = float(payload.get("min_gpu_memory_gb", 0) or 0)
         min_cpu_threads = int(payload.get("min_cpu_threads", 0) or 0)
         preferred_node_id = str(payload.get("preferred_node_id") or "").strip()
 
@@ -36,6 +37,10 @@ class TaskRouter:
                 return False, "community inference refuses private workloads"
         if requires_gpu and not node.get("has_gpu"):
             return False, "requires gpu"
+        if min_gpu_memory_gb:
+            available = node.get("gpu_memory_gb")
+            if available is None or float(available) < min_gpu_memory_gb:
+                return False, "not enough gpu memory"
         if min_memory_gb and float(node.get("memory_gb", 0)) < min_memory_gb:
             return False, "not enough memory"
         if min_cpu_threads and int(node.get("cpu_threads", 0)) < min_cpu_threads:
@@ -53,6 +58,7 @@ class TaskRouter:
             "job_type": job.get("job_type") or job.get("type"),
             "node_has_gpu": bool(node.get("has_gpu")),
             "node_memory_gb": node.get("memory_gb"),
+            "node_gpu_memory_gb": node.get("gpu_memory_gb"),
             "node_cpu_threads": node.get("cpu_threads"),
         }
 
