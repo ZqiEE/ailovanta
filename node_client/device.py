@@ -27,12 +27,15 @@ class DeviceProfile:
 
 def detect_device() -> DeviceProfile:
     gpu_name, gpu_memory_gb = detect_nvidia_gpu()
-    is_apple = platform.system() == "Darwin" and platform.machine().lower() in {"arm64", "aarch64"}
+    system = platform.system() or "Unknown"
+    is_apple = system == "Darwin" and platform.machine().lower() in {"arm64", "aarch64"}
     if not gpu_name and is_apple:
         gpu_name = "Apple Silicon"
     return DeviceProfile(
-        device_name=platform.node() or "local-node",
-        os=f"{platform.system()} {platform.release()}",
+        # Never upload the local hostname. The random NodeIdentity is the only
+        # stable network identity the control plane needs.
+        device_name=f"Ailovanta {system} Node",
+        os=system,
         cpu_threads=psutil.cpu_count(logical=True) or 1,
         memory_gb=round(psutil.virtual_memory().total / (1024**3), 2),
         has_gpu=bool(gpu_name),
