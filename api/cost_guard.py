@@ -27,13 +27,24 @@ EXTERNAL_SERVICE_ENV_VARS = (
 def zero_cash_status() -> dict[str, Any]:
     detected = sorted(name for name in EXTERNAL_SERVICE_ENV_VARS if os.getenv(name))
     zero_cash_mode = os.getenv("AILOVANTA_ZERO_CASH_MODE", "true").strip().lower() not in {"0", "false", "no", "off"}
+    runtime_mode = os.getenv("AILOVANTA_RUNTIME_MODE", "server-local").strip().lower() or "server-local"
+    if runtime_mode == "control-plane":
+        components = ["FastAPI", "SQLite scheduler metadata", "Caddy HTTPS"]
+        operator_costs = ["server", "domain", "server bandwidth if separately billed"]
+    elif runtime_mode == "private-local":
+        components = ["FastAPI", "local project storage", "Ollama", "user-owned CPU/GPU"]
+        operator_costs = ["user electricity/hardware usage"]
+    else:
+        components = ["FastAPI", "SQLite", "local project storage", "Ollama"]
+        operator_costs = ["server", "domain", "server electricity/bandwidth if separately billed"]
     return {
+        "runtime_mode": runtime_mode,
         "zero_cash_mode": zero_cash_mode,
         "zero_cash_ready": zero_cash_mode and not detected,
         "external_service_variables_detected": detected,
         "required_external_model_apis": [],
         "required_managed_databases": [],
         "required_managed_storage": [],
-        "local_components": ["FastAPI", "SQLite", "local project storage", "Ollama"],
-        "operator_costs_not_eliminated": ["server", "domain", "server electricity/bandwidth if separately billed"],
+        "local_components": components,
+        "operator_costs_not_eliminated": operator_costs,
     }
