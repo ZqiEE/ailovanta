@@ -51,33 +51,51 @@ def _nvidia_info() -> tuple[str | None, float | None]:
 
 
 def recommend_local_model() -> LocalModelProfile:
-    """Choose a conservative local bootstrap profile.
+    """Choose the strongest practical local bootstrap profile for this machine.
 
     The final Ailovanta-owned checkpoint will replace these bootstrap model tags.
-    The selector intentionally favors reliability over loading the largest model
-    a machine could theoretically squeeze into memory.
+    We keep enough memory headroom for KV cache and the coding workspace instead
+    of choosing a model that only barely loads.
     """
 
     ram_gb = round(psutil.virtual_memory().total / (1024**3), 2)
     gpu_name, gpu_memory_gb = _nvidia_info()
     is_apple = platform.system() == "Darwin" and platform.machine().lower() in {"arm64", "aarch64"}
 
-    if gpu_memory_gb is not None and gpu_memory_gb >= 20:
+    if gpu_memory_gb is not None and gpu_memory_gb >= 22 and ram_gb >= 32:
         return LocalModelProfile(
-            model="qwen2.5-coder:14b",
+            model="qwen3-coder:30b",
             context_length=32768,
-            reason="20GB+ NVIDIA VRAM: favor the stronger 14B bootstrap coder",
+            reason="22GB+ NVIDIA VRAM and 32GB+ RAM: use the stronger Qwen3-Coder 30B MoE bootstrap",
             gpu_name=gpu_name,
             gpu_memory_gb=gpu_memory_gb,
             system_memory_gb=ram_gb,
         )
-    if gpu_memory_gb is not None and gpu_memory_gb >= 10:
+    if gpu_memory_gb is not None and gpu_memory_gb >= 14:
         return LocalModelProfile(
-            model="qwen2.5-coder:7b",
+            model="qwen2.5-coder:14b",
             context_length=32768,
-            reason="10GB+ NVIDIA VRAM: balanced 7B local coding profile",
+            reason="14GB+ NVIDIA VRAM: strong 14B bootstrap with comfortable cache headroom",
             gpu_name=gpu_name,
             gpu_memory_gb=gpu_memory_gb,
+            system_memory_gb=ram_gb,
+        )
+    if gpu_memory_gb is not None and gpu_memory_gb >= 8:
+        return LocalModelProfile(
+            model="qwen2.5-coder:7b",
+            context_length=24576,
+            reason="8GB+ NVIDIA VRAM: balanced 7B local coding profile",
+            gpu_name=gpu_name,
+            gpu_memory_gb=gpu_memory_gb,
+            system_memory_gb=ram_gb,
+        )
+    if is_apple and ram_gb >= 48:
+        return LocalModelProfile(
+            model="qwen3-coder:30b",
+            context_length=32768,
+            reason="Apple Silicon with 48GB+ unified memory: use the stronger Qwen3-Coder 30B MoE bootstrap",
+            gpu_name="Apple Silicon",
+            gpu_memory_gb=None,
             system_memory_gb=ram_gb,
         )
     if is_apple and ram_gb >= 24:
@@ -101,7 +119,7 @@ def recommend_local_model() -> LocalModelProfile:
     return LocalModelProfile(
         model="qwen2.5-coder:3b",
         context_length=8192,
-        reason="low-memory fallback: keep the product usable without swapping heavily",
+        reason="low-memory fallback: keep the product usable without heavy swapping",
         gpu_name=gpu_name,
         gpu_memory_gb=gpu_memory_gb,
         system_memory_gb=ram_gb,
