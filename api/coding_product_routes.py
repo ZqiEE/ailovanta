@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from api.coding_agent import CodingAgent, CodingAgentError
 from api.cost_guard import zero_cash_status
 from api.local_usage_guard import LocalUsageGuard
+from api.local_workspace import LocalWorkspaceConflict, sync_local_workspace
 from api.model_status import coding_model_status
 from api.project_changes import apply_changes, project_diff
 from api.project_store import ProjectStore, ProjectStoreError
@@ -152,6 +153,21 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
         _owned(projects, project_id, owner)
         try:
             return apply_changes(projects, project_id, body.changes)
+        except ProjectStoreError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @router.post("/projects/{project_id}/sync")
+    def sync_to_local_disk(project_id: str, owner: str) -> dict[str, Any]:
+        _owned(projects, project_id, owner)
+        if not runtime_privacy_status().get("private_local"):
+            raise HTTPException(status_code=403, detail="disk sync is available only in private-local mode")
+        try:
+            return sync_local_workspace(projects, project_id)
+        except LocalWorkspaceConflict as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={"message": str(exc), "conflicts": exc.conflicts},
+            ) from exc
         except ProjectStoreError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
