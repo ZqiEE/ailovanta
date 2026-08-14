@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     profiles: ["public"]
     environment:
-      AILOVANTA_DOMAIN: ${AILOVANTA_DOMAIN:?set AILOVANTA_DOMAIN for public HTTPS}
+      AILOVANTA_DOMAIN: ${AILOVANTA_DOMAIN:-localhost}
     ports:
       - "80:80"
       - "443:443"
