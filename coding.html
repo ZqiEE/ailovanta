@@ -20,7 +20,7 @@
 <div class="editorBottom"><span id="editorState">Ready</span><span id="sizeState">0 chars</span></div>
 </section>
 <section class="pane agent">
-<div class="agentTop"><div class="row"><select id="mode"><option value="auto">Auto</option><option value="frontend">Frontend</option><option value="backend">Backend</option><option value="repair">Repair / Debug</option></select><button class="btn" id="refreshDiff">Diff</button><button class="btn" id="downloadZip">Download</button></div><textarea class="task" id="task" placeholder="Describe what you want changed in this project..."></textarea><button class="btn primary" id="generate">Generate changes</button></div>
+<div class="agentTop"><div class="row"><select id="mode"><option value="auto">Auto</option><option value="frontend">Frontend</option><option value="backend">Backend</option><option value="repair">Repair / Debug</option></select><button class="btn" id="refreshDiff">Diff</button><button class="btn" id="downloadZip">Download</button><button class="btn success" id="syncDisk" style="display:none">Sync to disk</button></div><textarea class="task" id="task" placeholder="Describe what you want changed in this project..."></textarea><button class="btn primary" id="generate">Generate changes</button></div>
 <div class="agentBody" id="agentBody"><div class="empty">Ailovanta reads the current project and proposes file-level changes. Review them before applying.</div></div>
 <div class="agentBottom"><button class="btn success" id="apply" disabled>Apply selected</button><button class="btn" id="discard" disabled>Discard</button></div>
 </section>
@@ -28,10 +28,12 @@
 </div>
 <div class="modal" id="modal"><div class="modalBox"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="modalActions"><button class="btn" id="modalCancel">Cancel</button><button class="btn primary" id="modalOk">Continue</button></div></div></div>
 <div class="toast" id="toast"></div>
+<script src="/static/bootstrap_query.js"></script>
 <script src="/static/coding.js"></script>
 <script src="/static/import_project.js"></script>
 <script src="/static/proposal_preview.js"></script>
 <script src="/static/privacy_status.js"></script>
 <script src="/static/model_integrity.js"></script>
+<script src="/static/local_sync.js"></script>
 </body>
 </html>
