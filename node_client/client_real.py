@@ -7,7 +7,7 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from node_client.client import heartbeat, register_node, request_with_retry, setup_logging
+from node_client.client import heartbeat, node_headers, register_node, request_with_retry, setup_logging
 from node_client.real_runner import JobRunner
 from node_client.resource_guard import ResourceGuard, ResourceLimits
 from node_client.task_policy import TaskPolicy
@@ -32,13 +32,23 @@ class RealNodeConfig:
 
 
 def fetch_job(config: RealNodeConfig, node_id: str) -> dict | None:
-    response = request_with_retry("GET", f"{config.api_url}/jobs/next", params={"node_id": node_id})
+    response = request_with_retry(
+        "GET",
+        f"{config.api_url}/jobs/next",
+        params={"node_id": node_id},
+        headers=node_headers(config),  # type: ignore[arg-type]
+    )
     return response.json().get("job")
 
 
 def submit_result(config: RealNodeConfig, node_id: str, result: dict) -> None:
     payload = result | {"node_id": node_id}
-    request_with_retry("POST", f"{config.api_url}/jobs/result", json=payload)
+    request_with_retry(
+        "POST",
+        f"{config.api_url}/jobs/result",
+        json=payload,
+        headers=node_headers(config),  # type: ignore[arg-type]
+    )
 
 
 def limits(config: RealNodeConfig) -> ResourceLimits:
