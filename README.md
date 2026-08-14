@@ -35,7 +35,7 @@ Run it:
 ```bash
 git clone https://github.com/ZqiEE/ailovanta.git
 cd ailovanta
-./start-local.sh
+bash start-local.sh
 ```
 
 ### Windows PowerShell
