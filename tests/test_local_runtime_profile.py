@@ -42,15 +42,17 @@ def test_requested_model_tag_must_match_exact_installed_tag():
     assert local_runtime._present(installed, "qwen2.5-coder") is True
 
 
-def test_contributor_profile_does_not_upload_hostname(monkeypatch):
+def test_contributor_profile_does_not_upload_hostname_and_reports_models_privately(monkeypatch):
     monkeypatch.setattr(device.platform, "node", lambda: "secret-personal-hostname")
     monkeypatch.setattr(device.platform, "system", lambda: "Linux")
     monkeypatch.setattr(device, "detect_nvidia_gpu", lambda: (None, None))
+    monkeypatch.setattr(device, "installed_ollama_models", lambda: ["qwen2.5-coder:7b"])
     monkeypatch.setattr(device.psutil, "cpu_count", lambda logical=True: 8)
     monkeypatch.setattr(device.psutil, "virtual_memory", lambda: _memory(16))
     profile = device.detect_device()
     assert "secret-personal-hostname" not in profile.device_name
     assert profile.device_name == "Ailovanta Linux Node"
+    assert profile.ollama_models == ["qwen2.5-coder:7b"]
 
 
 def test_private_local_runtime_never_claims_remote_project_transfer(monkeypatch):
