@@ -3,8 +3,9 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from node_client.coding_inference_worker import run_coding_inference, summary_json as inference_summary_json
 from node_client.job_descriptor import JobDescriptorPolicy
-from node_client.model_worker import run_model_shard, summary_json
+from node_client.model_worker import run_model_shard, summary_json as model_summary_json
 from node_client.task_policy import TaskPolicy
 
 
@@ -35,7 +36,13 @@ class JobRunner:
         if job_type == "model_shard":
             try:
                 result = run_model_shard(job)
-                return JobRunResult(job["id"], "ok", summary_json(result), round(time.time() - start, 3), reason, descriptor_check.reason)
+                return JobRunResult(job["id"], "ok", model_summary_json(result), round(time.time() - start, 3), reason, descriptor_check.reason)
+            except Exception as exc:
+                return JobRunResult(job.get("id", "unknown"), "failed", str(exc), round(time.time() - start, 3), "runtime_error", descriptor_check.reason)
+        if job_type == "coding_inference":
+            try:
+                result = run_coding_inference(job)
+                return JobRunResult(job["id"], "ok", inference_summary_json(result), round(time.time() - start, 3), reason, descriptor_check.reason)
             except Exception as exc:
                 return JobRunResult(job.get("id", "unknown"), "failed", str(exc), round(time.time() - start, 3), "runtime_error", descriptor_check.reason)
         time.sleep(min(self._seconds(job_type), self.policy.max_runtime_seconds))
