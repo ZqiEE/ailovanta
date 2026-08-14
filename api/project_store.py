@@ -17,9 +17,11 @@ class ProjectStoreError(ValueError):
 class ProjectStore:
     def __init__(self, root: str | Path | None = None) -> None:
         self.root = Path(root or os.getenv("AILOVANTA_PROJECT_ROOT", "runtime_data/coding_projects"))
-        self.max_files = int(os.getenv("AILOVANTA_PROJECT_MAX_FILES", "96"))
-        self.max_file_bytes = int(os.getenv("AILOVANTA_PROJECT_MAX_FILE_BYTES", str(128 * 1024)))
-        self.max_project_bytes = int(os.getenv("AILOVANTA_PROJECT_MAX_BYTES", str(2 * 1024 * 1024)))
+        # Local-first defaults: large enough for real source projects after
+        # generated/vendor directories are filtered, still bounded against accidents.
+        self.max_files = int(os.getenv("AILOVANTA_PROJECT_MAX_FILES", "512"))
+        self.max_file_bytes = int(os.getenv("AILOVANTA_PROJECT_MAX_FILE_BYTES", str(512 * 1024)))
+        self.max_project_bytes = int(os.getenv("AILOVANTA_PROJECT_MAX_BYTES", str(16 * 1024 * 1024)))
         self.root.mkdir(parents=True, exist_ok=True)
 
     def create(self, owner: str, name: str) -> dict[str, Any]:
@@ -86,12 +88,24 @@ class ProjectStore:
             raise ProjectStoreError("file not found")
         return {"path": rel.as_posix(), "content": target.read_text(encoding="utf-8", errors="replace")}
 
-    def put_file(self, project_id: str, path: str, content: str, snapshot_new: bool = True) -> dict[str, str]:
+    def preflight_write(self, project_id: str, path: str, content: str) -> PurePosixPath:
         self.get(project_id)
         rel = self.safe_path(path)
         raw = content.encode("utf-8")
         if len(raw) > self.max_file_bytes:
             raise ProjectStoreError("file exceeds size limit")
+        files = self.list_files(project_id)
+        existing = next((item for item in files if item["path"] == rel.as_posix()), None)
+        projected_count = len(files) + (0 if existing else 1)
+        projected_bytes = sum(int(item["bytes"]) for item in files) - int(existing["bytes"] if existing else 0) + len(raw)
+        if projected_count > self.max_files:
+            raise ProjectStoreError("project has too many files")
+        if projected_bytes > self.max_project_bytes:
+            raise ProjectStoreError("project exceeds size limit")
+        return rel
+
+    def put_file(self, project_id: str, path: str, content: str, snapshot_new: bool = True) -> dict[str, str]:
+        rel = self.preflight_write(project_id, path, content)
         target = self._files(project_id) / rel
         original = self._original(project_id) / rel
         if snapshot_new and not target.exists() and not original.exists():
@@ -99,12 +113,14 @@ class ProjectStore:
             original.write_text("", encoding="utf-8")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
-        self._check_limits(project_id)
         self.update_meta(project_id)
         return self.read_file(project_id, rel.as_posix())
 
     def seed_file(self, project_id: str, path: str, content: str) -> None:
         rel = self.safe_path(path)
+        raw = content.encode("utf-8")
+        if len(raw) > self.max_file_bytes:
+            raise ProjectStoreError("file exceeds size limit")
         for root in (self._files(project_id), self._original(project_id)):
             target = root / rel
             target.parent.mkdir(parents=True, exist_ok=True)
