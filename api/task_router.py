@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-GPU_JOB_TYPES = {"lora_micro", "image_generation", "gpu_inference", "model_shard"}
-HEAVY_JOB_TYPES = {"lora_micro", "rag_import", "evaluation_batch", "model_shard"}
+GPU_JOB_TYPES = {"lora_micro", "image_generation", "gpu_inference", "model_shard", "coding_inference"}
+HEAVY_JOB_TYPES = {"lora_micro", "rag_import", "evaluation_batch", "model_shard", "coding_inference"}
 
 
 class TaskRouter:
@@ -26,7 +26,14 @@ class TaskRouter:
         requires_gpu = bool(payload.get("requires_gpu")) or job_type in GPU_JOB_TYPES
         min_memory_gb = float(payload.get("min_memory_gb", 0) or 0)
         min_cpu_threads = int(payload.get("min_cpu_threads", 0) or 0)
+        preferred_node_id = str(payload.get("preferred_node_id") or "").strip()
 
+        if preferred_node_id and preferred_node_id != str(node.get("node_id") or ""):
+            return False, "reserved for another node"
+        if job_type == "coding_inference":
+            privacy_scope = str(payload.get("privacy_scope") or "").lower()
+            if privacy_scope not in {"public", "synthetic"}:
+                return False, "community inference refuses private workloads"
         if requires_gpu and not node.get("has_gpu"):
             return False, "requires gpu"
         if min_memory_gb and float(node.get("memory_gb", 0)) < min_memory_gb:
