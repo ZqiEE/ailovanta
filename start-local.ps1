@@ -15,4 +15,4 @@ if (-not (Test-Path ".venv")) {
 }
 
 & .\.venv\Scripts\python.exe -m pip install --disable-pip-version-check -q -r requirements-coding.txt
-& .\.venv\Scripts\python.exe -m node_client.local_runtime
+& .\.venv\Scripts\python.exe -m node_client.local_runtime @args
