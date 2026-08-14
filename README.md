@@ -1,185 +1,87 @@
-# Ailovanta
+# Ailovanta Coding
 
 [![Ailovanta CI](https://github.com/ZqiEE/ailovanta/actions/workflows/validate.yml/badge.svg)](https://github.com/ZqiEE/ailovanta/actions/workflows/validate.yml)
 
-> AI powered by the world's distributed compute.
+**One coding product for frontend, backend engineering, and repair.**
 
-Ailovanta is a distributed AI compute network MVP. The current public product path is **guest-first chat**: open the app, ask a question, keep conversation history, and continue without login or payment.
+Ailovanta is being rebuilt as a usable coding workspace backed by one local coding model and an owned-model training system. The public product is no longer a generic chat shell.
 
-## Current MVP rule
+## Use it
+
+A user can:
+
+1. Create a project or import a local source folder.
+2. Browse and edit project files in the browser.
+3. Ask Ailovanta to build a feature, improve frontend UI, change backend code, or repair a bug.
+4. Review the proposed file-level changes.
+5. Apply selected changes.
+6. Inspect the project diff.
+7. Download the modified project as a ZIP.
+
+Ailovanta does **not** execute arbitrary uploaded repository code on the central server. The current public product edits source safely; isolated execution belongs on sandboxed workers.
+
+## One model, three strengths
+
+The product exposes four work modes:
 
 ```text
-No required login.
-No required payment.
-No required wallet.
-Guest mode first.
+Auto
+Frontend
+Backend
+Repair / Debug
 ```
 
-GitHub OAuth and payment docs may exist for later, but they are not the default user path.
+These modes use the **same deployed checkpoint**. They are not runtime routing to Gemini, Claude, or Codex.
 
-## Owned runtime loop
+The training architecture has three specialist branches:
 
-Ailovanta now also contains a local owned-model loop scaffold. This is not a claim that a production foundation model has already been trained. It is the code path that prepares the system for real training nodes, real GPU work, real artifacts, and trusted runtime routing.
+```text
+Frontend specialist
+  -> visual UI / browser / responsive / interaction quality
 
-Run the local loop:
+Backend specialist
+  -> repository engineering / APIs / databases / tests
+
+Repair specialist
+  -> reproduce / diagnose / patch / regression control
+
+three same-base specialists
+  -> unification
+  -> one Ailovanta-owned coding checkpoint
+```
+
+The current public runtime is a bootstrap local coder through Ollama, defaulting to `qwen2.5-coder:7b`. This repository does **not** claim that the final proprietary three-stream distilled checkpoint has already been trained. The training, verification, checkpoint, and unification paths are being built so the bootstrap model can later be replaced by the owned Ailovanta checkpoint without changing the product workflow.
+
+## Product architecture
+
+```text
+Browser coding workspace
+        |
+        v
+FastAPI product API
+        |
+        +--> project store / files / diff / ZIP export
+        |
+        +--> one local coding model through Ollama
+        |
+        +--> Frontend / Backend / Repair task modes
+        |
+        +--> existing scheduler / node / verifier infrastructure
+        |
+        +--> three-expert autonomous training factory
+```
+
+The old distributed-compute infrastructure is retained underneath the coding product: node registration, job scheduling, verification, trust, artifacts, runtime routing, training jobs, checkpoint promotion, and H-SwarmTrain direction.
+
+## Local quickstart
+
+Install Ollama and pull the bootstrap coder:
 
 ```bash
-python scripts/aio.py --core-path ../ailovanta-core
+ollama pull qwen2.5-coder:7b
 ```
 
-The all-in-one runner executes:
-
-```text
-preflight
--> local plan
--> node trust registration
--> signed node result
--> proof-required receipt export
--> core checkpoint set
--> foundation artifact v2
--> promotion gate with proof/trust guardrails
--> gated runtime apply
--> final report
-```
-
-Successful output ends with:
-
-```json
-{
-  "ok": true,
-  "final": {
-    "stage": "runtime_ready"
-  }
-}
-```
-
-Important boundaries:
-
-```text
-The local loop is a code-level demo scaffold.
-Real GPU training, real remote workers, real model weights, and real chain anchoring still require production infrastructure.
-```
-
-## Current model backend truth
-
-The current chat inference path uses a **local bootstrap runtime** through Ollama. It is not Alibaba Cloud, not DashScope, and not yet a production Ailovanta-owned foundation model.
-
-The intended Ailovanta-owned model path is:
-
-```text
-public learning events
--> AutoTruth / training pack
--> foundation plan
--> distributed node work
--> signed checkpoint receipts
--> checkpoint set
--> foundation artifact
--> promotion gate
--> artifact binding
--> runtime preparation
--> checked owned-chat
-```
-
-See `docs/LOCAL_LOOP.md`, `docs/NODE_TRUST.md`, `docs/RFLOW.md`, and `docs/AUTO_RUNTIME.md` for the owned loop pieces.
-
-## What it is
-
-Ailovanta explores a simple loop:
-
-```text
-people run useful machines
--> the network gets compute
--> compute runs AI jobs
--> results are verified
--> useful contributors earn access and reputation
-```
-
-The repository is not claiming a finished global training network. It is a working local foundation for the public layer: guest chat, persistent conversations, native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, local AI fallback, and an owned-runtime loop scaffold.
-
-## Main user path
-
-```text
-1. Open /app.
-2. Browser creates guest_id.
-3. User sends a message.
-4. Frontend calls POST /ailovanta/v1/chat.
-5. Backend creates or reuses conversation_id.
-6. Backend saves user and assistant messages.
-7. Backend uses recent conversation history for follow-up turns.
-8. User can reload, continue, load, or delete conversations.
-```
-
-## Main APIs
-
-```text
-POST /ailovanta/v1/chat
-GET  /ailovanta/v1/conversations
-GET  /ailovanta/v1/conversations/{conversation_id}/messages
-DELETE /ailovanta/v1/conversations/{conversation_id}
-
-POST /ailovanta/v1/run
-POST /v1/chat/completions
-
-GET  /reputation/leaderboard
-GET  /reputation/summary
-
-POST /usage/events
-GET  /usage/events
-GET  /usage/summary
-
-POST /rflow2/run
-POST /obx2/submit
-POST /gg/run
-POST /apply/result
-POST /parcel-export/receipts
-```
-
-## Repositories
-
-Public repository:
-
-```bash
-git clone https://github.com/ZqiEE/ailovanta.git
-```
-
-Private core repository:
-
-```text
-https://github.com/ZqiEE/ailovanta-core.git
-```
-
-## Current MVP features
-
-- Guest-first chat UI in `index.html`
-- No login wall and no payment wall
-- Browser `guest_id`
-- Conversation list, load, new chat, and delete chat
-- Native chat endpoint: `/ailovanta/v1/chat`
-- Native run endpoint: `/ailovanta/v1/run`
-- Persistent conversation store
-- Conversation context builder
-- Ollama adapter with chat-history support
-- Compatibility chat endpoint: `/v1/chat/completions`
-- Runtime model manifest registry
-- Runtime node registry
-- Runtime assignment history
-- Warm-cache, trust, privacy, latency, price, and GPU-memory-aware Runtime Router
-- Node registration and heartbeat
-- Job queue and result submission
-- Lightweight result verification
-- Reputation endpoints
-- Usage event endpoints
-- Training job planner
-- Model version registry
-- Proof-gated checkpoint receipts
-- Node trust registry
-- Foundation artifact binding
-- Runtime preparation diagnostics
-- Local owned-runtime loop runner
-- Docker / Compose files
-- Validation script and pytest suite
-
-## Quickstart
+Then:
 
 ```bash
 git clone https://github.com/ZqiEE/ailovanta.git
@@ -187,9 +89,14 @@ cd ailovanta
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python validate.py
-python -m pytest -q
-uvicorn api.main:app --reload
+make validate
+make api
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/
 ```
 
 Windows PowerShell:
@@ -200,54 +107,70 @@ cd ailovanta
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-python validate.py
+python -m compileall -q api node_client scripts
 python -m pytest -q
-uvicorn api.main:app --reload
+uvicorn api.product_app:app --reload
 ```
 
-Owned loop local check:
+## Minimal server deployment
+
+A dedicated production compose is included:
 
 ```bash
-python scripts/preflight.py --core-path ../ailovanta-core
-python scripts/aio.py --core-path ../ailovanta-core
+docker compose -f docker-compose.coding.yml up -d --build
+docker compose -f docker-compose.coding.yml exec ollama ollama pull qwen2.5-coder:7b
+curl http://127.0.0.1:8000/coding/status
 ```
 
-Open after the API starts:
+`docker-compose.coding.yml` binds the application to localhost. Put Caddy, Nginx, or another TLS reverse proxy in front of port `8000` and point the domain at the server.
+
+Project data is persisted in the `ailovanta_data` volume and Ollama model data in `ollama_data`.
+
+## Main product APIs
 
 ```text
-App:       http://127.0.0.1:8000/app
-API docs:  http://127.0.0.1:8000/docs
-Dashboard: http://127.0.0.1:8000/dashboard
+GET  /coding/status
+POST /coding/projects
+GET  /coding/projects
+GET  /coding/projects/{project_id}
+GET  /coding/projects/{project_id}/file
+PUT  /coding/projects/{project_id}/file
+DELETE /coding/projects/{project_id}/file
+POST /coding/projects/{project_id}/import
+POST /coding/projects/{project_id}/propose
+POST /coding/projects/{project_id}/apply
+GET  /coding/projects/{project_id}/diff
+GET  /coding/projects/{project_id}/export
 ```
 
-## Local check
+Training-system APIs remain available:
+
+```text
+GET  /coding/experts
+POST /coding/training/expert
+POST /coding/training/next
+POST /coding/training/unify
+```
+
+## Training target
+
+The long-term model target is deliberately narrow: a small, high-capability software-engineering model rather than a general-purpose encyclopedia model.
+
+```text
+strong frontend product work
++ strong repository/backend engineering
++ strong debugging/repair
++ executable verification
++ autonomous improvement
+= one owned Ailovanta coding model
+```
+
+See `docs/CODING_REBUILD.md` for the specialist/unification design. The private `ailovanta-core` repository retains the distributed training core and H-SwarmTrain infrastructure.
+
+## Validation
 
 ```bash
-python validate.py
-python -m pytest -q
+make validate
 ```
 
-## Docs
-
-- `docs/LOCAL_LOOP.md` — one-command local owned-runtime loop
-- `docs/NODE_TRUST.md` — node proof and trust registry
-- `docs/RFLOW.md` — receipt flow from submitted outputs to runtime path
-- `docs/AUTO_RUNTIME.md` — autonomous runtime preparation
-- `docs/MODEL_BACKEND.md` — current bootstrap model boundary and Ailovanta-owned model path
-- `docs/NEXT_STAGE_PRD.md` — guest chat core product requirements
-- `docs/NEXT_STAGE_CODEX_TASKS.md` — execution plan for guest chat core
-- `docs/AUTH_MODEL.md` — guest-first access model
-- `docs/PAYMENT_MODEL.md` — payment deferred model
-- `docs/NATIVE_RUN_API.md` — native run API guide
-- `docs/V1_CHAT_API.md` — compatibility chat API guide
-- `docs/RUNTIME_DEMO.md` — runtime demo guide
-- `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
-- `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
-
-## Final product principle
-
-```text
-First prove value.
-Then add identity.
-Then add payment.
-```
+The main CI compiles product modules and runs the complete pytest suite. Release and RG gates additionally verify the product surface and legacy infrastructure compatibility.
