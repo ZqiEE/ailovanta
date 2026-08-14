@@ -15,7 +15,7 @@
 <p>Ailovanta runs coding inference on your own computer by default. Private project files and prompts stay on that computer. The public server coordinates versions and opt-in public compute; it does not need to run your coding model.</p>
 <div class="status"><span class="pill green">No model API required</span><span class="pill green">Private-local by default</span><span class="pill">Frontend + Backend + Repair</span><span class="pill">Community compute is opt-in</span></div>
 <div class="grid">
-<div class="card"><h2>macOS / Linux</h2><p>Clone once, then Ailovanta detects your hardware, starts local Ollama if available, chooses a model profile, and opens the private workspace.</p><div class="code">git clone https://github.com/ZqiEE/ailovanta.git<br>cd ailovanta<br>./start-local.sh</div></div>
+<div class="card"><h2>macOS / Linux</h2><p>Clone once, then Ailovanta detects your hardware, starts local Ollama if available, chooses a model profile, and opens the private workspace.</p><div class="code">git clone https://github.com/ZqiEE/ailovanta.git<br>cd ailovanta<br>bash start-local.sh</div></div>
 <div class="card"><h2>Windows PowerShell</h2><p>The same local path works on Windows. The first run may download the selected open bootstrap model to your own machine.</p><div class="code">git clone https://github.com/ZqiEE/ailovanta.git<br>cd ailovanta<br>.\start-local.ps1</div></div>
 <div class="card"><h2>Contribute idle compute</h2><p>Optional. Community mode accepts public or synthetic workloads only and has CPU/GPU/temperature limits. Private project inference is rejected by worker policy.</p><div class="code">python -m node_client.client_real --api-url https://YOUR_DOMAIN --contribution 30</div></div>
 </div>
