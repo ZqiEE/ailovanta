@@ -4,15 +4,17 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV AILOVANTA_ENV=production
+ENV AILOVANTA_ZERO_CASH_MODE=true
 ENV AILOVANTA_REQUIRE_NODE_PROOF=true
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-coding.txt ./
+RUN pip install --no-cache-dir -r requirements-coding.txt
 
 COPY . .
 
