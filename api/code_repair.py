@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import subprocess
 import sys
@@ -29,8 +30,14 @@ def check_command(command: str) -> list[str]:
 
 
 def run_test(command: str, project_dir: str | Path, timeout: int = 120) -> dict[str, Any]:
+    root = Path(project_dir).resolve()
     args = check_command(command)
-    proc = subprocess.run(args, cwd=str(Path(project_dir).resolve()), text=True, capture_output=True, timeout=timeout)
+    if command in {"pytest", "python -m pytest"}:
+        args = [*args, "-q", "--rootdir", str(root), str(root)]
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = str(root) + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
+    proc = subprocess.run(args, cwd=str(root), text=True, capture_output=True, timeout=timeout, env=env)
     return {"command": command, "returncode": proc.returncode, "ok": proc.returncode == 0, "stdout": proc.stdout[-8000:], "stderr": proc.stderr[-8000:]}
 
 
