@@ -108,9 +108,12 @@ class ProjectStore:
         rel = self.preflight_write(project_id, path, content)
         target = self._files(project_id) / rel
         original = self._original(project_id) / rel
-        if snapshot_new and not target.exists() and not original.exists():
+        # If an unusual workspace has a current file but no baseline yet, capture
+        # the pre-edit bytes. For a truly new file keep the original absent; that
+        # distinction is required for conflict-safe sync back to a real repo.
+        if snapshot_new and target.exists() and not original.exists():
             original.parent.mkdir(parents=True, exist_ok=True)
-            original.write_text("", encoding="utf-8")
+            original.write_bytes(target.read_bytes())
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
         self.update_meta(project_id)
