@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ailovanta</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}*{box-sizing:border-box}body{margin:0;background:#090b10;color:#f4f6fb}.wrap{max-width:1040px;margin:0 auto;padding:72px 28px}.eyebrow{color:#8fa8ff;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:12px}h1{font-size:clamp(42px,7vw,76px);line-height:1.02;margin:18px 0;max-width:900px}p{color:#aeb6c7;font-size:18px;line-height:1.65;max-width:760px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:42px}.card{border:1px solid #242936;border-radius:18px;padding:22px;background:#10131a}.card h2{font-size:18px;margin:0 0 10px}.card p{font-size:14px;margin:0}.code{margin-top:14px;background:#080a0e;border:1px solid #222734;border-radius:12px;padding:14px;overflow:auto;color:#d8def0;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}.status{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.pill{border:1px solid #2c3445;border-radius:999px;padding:9px 13px;color:#c9d0df;font-size:13px}.green{color:#84e6b0;border-color:#24583a}.foot{margin-top:64px;color:#70798d;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="eyebrow">Ailovanta Coding</div>
+<h1>Your GPU. Your code. One serious coding model.</h1>
+<p>Ailovanta runs coding inference on your own computer by default. Private project files and prompts stay on that computer. The public server coordinates versions and opt-in public compute; it does not need to run your coding model.</p>
+<div class="status"><span class="pill green">No model API required</span><span class="pill green">Private-local by default</span><span class="pill">Frontend + Backend + Repair</span><span class="pill">Community compute is opt-in</span></div>
+<div class="grid">
+<div class="card"><h2>macOS / Linux</h2><p>Clone once, then Ailovanta detects your hardware, starts local Ollama if available, chooses a model profile, and opens the private workspace.</p><div class="code">git clone https://github.com/ZqiEE/ailovanta.git<br>cd ailovanta<br>./start-local.sh</div></div>
+<div class="card"><h2>Windows PowerShell</h2><p>The same local path works on Windows. The first run may download the selected open bootstrap model to your own machine.</p><div class="code">git clone https://github.com/ZqiEE/ailovanta.git<br>cd ailovanta<br>.\start-local.ps1</div></div>
+<div class="card"><h2>Contribute idle compute</h2><p>Optional. Community mode accepts public or synthetic workloads only and has CPU/GPU/temperature limits. Private project inference is rejected by worker policy.</p><div class="code">python -m node_client.client_real --api-url https://YOUR_DOMAIN --contribution 30</div></div>
+</div>
+<div class="foot">Bootstrap models are temporary. The product architecture is designed so Ailovanta's own unified distilled checkpoint can replace them without changing the local workflow.</div>
+</div>
+</body>
+</html>
