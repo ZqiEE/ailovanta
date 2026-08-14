@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.coding_agent import CodingAgent, CodingAgentError
+from api.cost_guard import zero_cash_status
 from api.model_status import coding_model_status
 from api.project_changes import apply_changes, project_diff
 from api.project_store import ProjectStore, ProjectStoreError
@@ -50,10 +51,15 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             "product": "Ailovanta Coding",
             "model": agent.model.config.model,
             "model_runtime": model_state,
+            "cost": zero_cash_status(),
             "modes": ["auto", "frontend", "backend", "repair"],
             "max_files": projects.max_files,
             "max_project_bytes": projects.max_project_bytes,
         }
+
+    @router.get("/cost")
+    def cost_status() -> dict[str, Any]:
+        return zero_cash_status()
 
     @router.post("/projects")
     def create_project(body: CreateProjectRequest) -> dict[str, Any]:
