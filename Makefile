@@ -2,7 +2,7 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install install-coding validate test local local-auto api legacy-api coding-up coding-gpu coding-public coding-model cost-status node node-real smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
+.PHONY: install install-coding validate test local local-auto api legacy-api control-public coding-up coding-gpu coding-public coding-model cost-status node node-real smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -30,6 +30,11 @@ api:
 
 legacy-api:
 	uvicorn api.main:app --reload --host $(API_HOST) --port $(API_PORT)
+
+# Public domain/control plane: no Ollama or server GPU required.
+control-public:
+	@test -n "$(AILOVANTA_DOMAIN)" || (echo "Set AILOVANTA_DOMAIN=code.example.com" && exit 1)
+	AILOVANTA_DOMAIN=$(AILOVANTA_DOMAIN) docker compose -f docker-compose.control.yml up -d --build
 
 coding-up:
 	docker compose -f docker-compose.coding.yml up -d --build
