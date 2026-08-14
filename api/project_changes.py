@@ -5,11 +5,23 @@ from pathlib import Path
 from typing import Any
 
 from api.project_store import ProjectStore, ProjectStoreError
+from api.project_validator import validate_changes
 
 
 def apply_changes(store: ProjectStore, project_id: str, changes: list[dict[str, Any]]) -> dict[str, Any]:
     if len(changes) > 32:
         raise ProjectStoreError("too many file changes")
+
+    validation = validate_changes(changes)
+    if not validation.get("ok"):
+        first = validation["diagnostics"][0]
+        raise ProjectStoreError(
+            "generated changes failed static validation: "
+            + str(first.get("path"))
+            + ": "
+            + str(first.get("message"))
+        )
+
     applied = []
     for change in changes:
         path = str(change.get("path") or "")
@@ -24,7 +36,12 @@ def apply_changes(store: ProjectStore, project_id: str, changes: list[dict[str, 
             if "content" not in change:
                 raise ProjectStoreError("file change missing content")
             applied.append(store.put_file(project_id, path, str(change.get("content") or "")))
-    return {"ok": True, "applied": applied, "diff": project_diff(store, project_id)}
+    return {
+        "ok": True,
+        "applied": applied,
+        "validation": validation,
+        "diff": project_diff(store, project_id),
+    }
 
 
 def project_diff(store: ProjectStore, project_id: str) -> str:
