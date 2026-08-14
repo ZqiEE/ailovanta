@@ -3,12 +3,13 @@ from __future__ import annotations
 import io
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.coding_agent import CodingAgent, CodingAgentError
 from api.cost_guard import zero_cash_status
+from api.local_usage_guard import LocalUsageGuard
 from api.model_status import coding_model_status
 from api.project_changes import apply_changes, project_diff
 from api.project_store import ProjectStore, ProjectStoreError
@@ -41,6 +42,7 @@ class ApplyRequest(BaseModel):
 def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
     projects = store or ProjectStore()
     agent = CodingAgent(store=projects)
+    usage_guard = LocalUsageGuard()
     router = APIRouter(prefix="/coding", tags=["coding-product"])
 
     @router.get("/status")
@@ -52,6 +54,7 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             "model": agent.model.config.model,
             "model_runtime": model_state,
             "cost": zero_cash_status(),
+            "local_usage_policy": usage_guard.policy(),
             "modes": ["auto", "frontend", "backend", "repair"],
             "max_files": projects.max_files,
             "max_project_bytes": projects.max_project_bytes,
@@ -107,14 +110,21 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @router.post("/projects/{project_id}/propose")
-    def propose(project_id: str, body: ProposeRequest, owner: str) -> dict[str, Any]:
+    def propose(project_id: str, body: ProposeRequest, owner: str, request: Request) -> dict[str, Any]:
         _owned(projects, project_id, owner)
+        client_host = request.client.host if request.client else "unknown"
+        if not usage_guard.allow(client_host):
+            raise HTTPException(status_code=429, detail="local model request limit reached; try again shortly")
+        if not usage_guard.acquire_model():
+            raise HTTPException(status_code=429, detail="local model is busy; try again shortly")
         try:
             return agent.propose(project_id, body.task, body.mode)
         except (CodingAgentError, ProjectStoreError) as exc:
             message = str(exc)
             status_code = 503 if "unavailable" in message else 400
             raise HTTPException(status_code=status_code, detail=message) from exc
+        finally:
+            usage_guard.release_model()
 
     @router.post("/projects/{project_id}/apply")
     def apply(project_id: str, body: ApplyRequest, owner: str) -> dict[str, Any]:
