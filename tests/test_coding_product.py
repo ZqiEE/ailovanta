@@ -27,6 +27,7 @@ def test_project_edit_diff_export(tmp_path: Path):
     store.put_file(project_id, "hello.py", 'print("hello")\n')
     result = apply_changes(store, project_id, [{"path": "hello.py", "content": 'print("hello world")\n'}])
     assert result["ok"] is True
+    assert result["validation"]["ok"] is True
     assert "+print(\"hello world\")" in project_diff(store, project_id)
     assert len(store.export_zip(project_id)) > 20
 
@@ -41,6 +42,26 @@ def test_unified_agent_proposes_real_file_changes(tmp_path: Path):
     assert proposal["changes"][0]["path"] == "hello.py"
     apply_changes(store, project_id, proposal["changes"])
     assert "hello world" in store.read_file(project_id, "hello.py")["content"]
+
+
+def test_invalid_generated_python_is_rejected_before_any_write(tmp_path: Path):
+    store = ProjectStore(tmp_path)
+    project_id = store.create("guest-test", "Example")["project_id"]
+    store.put_file(project_id, "hello.py", 'print("hello")\n')
+    store.put_file(project_id, "config.json", '{"ok": true}\n')
+
+    with pytest.raises(ProjectStoreError, match="static validation"):
+        apply_changes(
+            store,
+            project_id,
+            [
+                {"path": "config.json", "content": '{"changed": true}\n'},
+                {"path": "hello.py", "content": "def broken(:\n    pass\n"},
+            ],
+        )
+
+    assert store.read_file(project_id, "config.json")["content"] == '{"ok": true}\n'
+    assert store.read_file(project_id, "hello.py")["content"] == 'print("hello")\n'
 
 
 def test_project_paths_cannot_escape_workspace(tmp_path: Path):
