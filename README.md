@@ -6,6 +6,16 @@
 
 Ailovanta is being rebuilt as a usable coding workspace backed by one local coding model and an owned-model training system. The public product is no longer a generic chat shell.
 
+## Access policy
+
+```text
+Guest mode first.
+No required login.
+No required payment.
+```
+
+The first public version is designed to remove onboarding friction: users can open the product and start working on code without a login wall or paywall.
+
 ## Use it
 
 A user can:
