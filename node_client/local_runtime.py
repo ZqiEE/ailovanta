@@ -7,22 +7,46 @@ import subprocess
 import sys
 import time
 import webbrowser
+from typing import Any
 
 import httpx
 
+from api.model_lock import ModelLockStore
 from node_client.model_profile import LocalModelProfile, recommend_local_model
 
 
 OLLAMA_URL = "http://127.0.0.1:11434"
 
 
-def _ollama_models() -> set[str] | None:
+def _ollama_catalog() -> list[dict[str, Any]] | None:
     try:
         response = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=2.0)
         response.raise_for_status()
-        return {str(row.get("name") or "") for row in response.json().get("models", [])}
+        return [row for row in response.json().get("models", []) if isinstance(row, dict)]
     except Exception:
         return None
+
+
+def _ollama_models() -> set[str] | None:
+    rows = _ollama_catalog()
+    if rows is None:
+        return None
+    return {str(row.get("name") or "") for row in rows}
+
+
+def _model_digest(model: str) -> str | None:
+    rows = _ollama_catalog()
+    if rows is None:
+        return None
+    wanted_base = model.split(":", 1)[0]
+    selected = next((row for row in rows if str(row.get("name") or "") == model), None)
+    if selected is None:
+        selected = next(
+            (row for row in rows if str(row.get("name") or "").split(":", 1)[0] == wanted_base),
+            None,
+        )
+    digest = str(selected.get("digest") or "") if selected else ""
+    return digest or None
 
 
 def _start_ollama() -> subprocess.Popen | None:
@@ -76,6 +100,26 @@ def _confirm_pull(model: str, assume_yes: bool) -> bool:
     return answer in {"", "y", "yes"}
 
 
+def _verify_model_integrity(model: str, accept_change: bool) -> dict[str, Any]:
+    digest = _model_digest(model)
+    store = ModelLockStore()
+    state = store.ensure(model, digest, accept_change=accept_change)
+    if state.get("status") == "mismatch":
+        expected = state.get("expected_digest")
+        actual = state.get("actual_digest")
+        raise SystemExit(
+            "Local model digest changed for "
+            + model
+            + ".\nExpected: "
+            + str(expected)
+            + "\nActual:   "
+            + str(actual)
+            + "\nAilovanta stopped instead of silently changing model quality. "
+            "If you intentionally updated this model, rerun with --accept-model-change."
+        )
+    return state
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run Ailovanta Coding privately on this computer using this computer's GPU/CPU."
@@ -85,6 +129,11 @@ def main() -> None:
     parser.add_argument("--model", default=None, help="Override the hardware-selected Ollama model.")
     parser.add_argument("--context", type=int, default=None, help="Override model context length.")
     parser.add_argument("--yes", action="store_true", help="Download the recommended model without prompting.")
+    parser.add_argument(
+        "--accept-model-change",
+        action="store_true",
+        help="Explicitly replace the saved digest lock after an intentional local model update.",
+    )
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
 
@@ -113,6 +162,13 @@ def main() -> None:
             raise SystemExit(f"Required local model is missing: {profile.model}")
         _pull(profile.model)
 
+    integrity = _verify_model_integrity(profile.model, args.accept_model_change)
+    if integrity.get("actual_digest"):
+        print(f"- model digest: {integrity['actual_digest']}")
+        print(f"- model integrity: {integrity.get('status')}")
+    else:
+        print("- model integrity: digest unavailable from local runtime")
+
     # Set runtime configuration before importing the FastAPI application.
     os.environ["OLLAMA_BASE_URL"] = OLLAMA_URL
     os.environ["OLLAMA_MODEL"] = profile.model
@@ -127,7 +183,6 @@ def main() -> None:
 
     url = f"http://{args.host}:{args.port}/"
     if not args.no_browser:
-        # Give Uvicorn a moment to bind before the browser opens.
         import threading
 
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
@@ -135,7 +190,6 @@ def main() -> None:
         uvicorn.run("api.product_app:app", host=args.host, port=args.port, log_level="info")
     finally:
         if started is not None and started.poll() is None:
-            # We only stop a daemon that this launcher started itself.
             started.terminate()
 
 
