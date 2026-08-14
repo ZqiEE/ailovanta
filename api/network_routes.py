@@ -45,10 +45,10 @@ class PublicInferenceRequest(BaseModel):
     min_gpu_memory_gb: float = Field(default=6.0, ge=0, le=512)
 
 
-def build_network_router(store: SchedulerStore) -> APIRouter:
+def build_network_router(store: SchedulerStore, node_tokens: NodeTokenStore | None = None) -> APIRouter:
     router = APIRouter(tags=["distributed-compute"])
     verifier = VerificationEngine()
-    token_store = NodeTokenStore("runtime_data/coding_node_tokens.json")
+    token_store = node_tokens or NodeTokenStore("runtime_data/coding_node_tokens.json")
 
     def require_node_token(node_id: str, token: str | None) -> None:
         if not store.get_node(node_id):
@@ -89,7 +89,6 @@ def build_network_router(store: SchedulerStore) -> APIRouter:
             "gpu_name": node.get("gpu_name"),
             "gpu_memory_gb": node.get("gpu_memory_gb"),
         }
-        # The raw token is returned exactly once at enrollment/migration time.
         if issued_token:
             response["node_token"] = issued_token
         return response
@@ -106,7 +105,6 @@ def build_network_router(store: SchedulerStore) -> APIRouter:
     @router.get("/network/status")
     def network_status() -> dict:
         status = store.status()
-        # Aggregate status is intentionally public; no node identity or workload payload is returned.
         return {
             "nodes": status.get("nodes", 0),
             "queued_jobs": status.get("queued_jobs", 0),
@@ -119,7 +117,6 @@ def build_network_router(store: SchedulerStore) -> APIRouter:
     @router.get("/network/nodes")
     def network_nodes(limit: int = 50) -> dict:
         nodes = store.list_nodes(max(1, min(limit, 200)))
-        # Public discovery is deliberately de-identified. Random node IDs and local hostnames are not exposed.
         return {
             "nodes": [
                 {
@@ -147,12 +144,44 @@ def build_network_router(store: SchedulerStore) -> APIRouter:
         job_id: str,
         x_ailovanta_job_token: str | None = Header(default=None, alias="X-Ailovanta-Job-Token"),
     ) -> dict:
-        # Job payloads can contain prompts, so this diagnostic endpoint is never public.
         require_job_token(x_ailovanta_job_token)
         job = store.get_job(job_id)
         if not job:
             raise HTTPException(status_code=404, detail="job not found")
-        return store._api_job(job)
+        item = store._api_job(job)
+        # Trusted callers can inspect job metadata but prompt content is not echoed.
+        item["payload"] = {
+            key: value
+            for key, value in item.get("payload", {}).items()
+            if key not in {"prompt", "messages", "repository", "files"}
+        }
+        return item
+
+    @router.get("/jobs/{job_id}/result")
+    def get_job_result(
+        job_id: str,
+        x_ailovanta_job_token: str | None = Header(default=None, alias="X-Ailovanta-Job-Token"),
+    ) -> dict:
+        require_job_token(x_ailovanta_job_token)
+        with store.connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM results WHERE job_id = ? ORDER BY submitted_at DESC LIMIT 1", (job_id,)
+            ).fetchone()
+        if not row:
+            job = store.get_job(job_id)
+            if not job:
+                raise HTTPException(status_code=404, detail="job not found")
+            return {"job_id": job_id, "status": job.get("status"), "result": None}
+        result = dict(row)
+        return {
+            "job_id": job_id,
+            "status": "done" if result.get("status") == "ok" else "failed",
+            "result": {
+                "status": result.get("status"),
+                "output_summary": result.get("output_summary"),
+                "submitted_at": result.get("submitted_at"),
+            },
+        }
 
     @router.post("/jobs/result")
     def submit_result(
@@ -178,8 +207,6 @@ def build_network_router(store: SchedulerStore) -> APIRouter:
         body: PublicInferenceRequest,
         x_ailovanta_job_token: str | None = Header(default=None, alias="X-Ailovanta-Job-Token"),
     ) -> dict:
-        # This API is for trusted product/training services, not arbitrary internet users.
-        # It is disabled unless the operator explicitly configures a secret token.
         require_job_token(x_ailovanta_job_token)
         job_id = "public_infer_" + uuid4().hex[:16]
         payload = {
