@@ -34,17 +34,20 @@ def _ollama_models() -> set[str] | None:
     return {str(row.get("name") or "") for row in rows}
 
 
+def _name_matches(installed: str, wanted: str) -> bool:
+    if ":" in wanted:
+        return installed == wanted
+    return installed.split(":", 1)[0] == wanted
+
+
 def _model_digest(model: str) -> str | None:
     rows = _ollama_catalog()
     if rows is None:
         return None
-    wanted_base = model.split(":", 1)[0]
-    selected = next((row for row in rows if str(row.get("name") or "") == model), None)
-    if selected is None:
-        selected = next(
-            (row for row in rows if str(row.get("name") or "").split(":", 1)[0] == wanted_base),
-            None,
-        )
+    selected = next(
+        (row for row in rows if _name_matches(str(row.get("name") or ""), model)),
+        None,
+    )
     digest = str(selected.get("digest") or "") if selected else ""
     return digest or None
 
@@ -66,8 +69,7 @@ def _start_ollama() -> subprocess.Popen | None:
 
 
 def _present(models: set[str], model: str) -> bool:
-    wanted_base = model.split(":", 1)[0]
-    return model in models or any(name.split(":", 1)[0] == wanted_base for name in models)
+    return any(_name_matches(name, model) for name in models)
 
 
 def _pull(model: str) -> None:
@@ -169,7 +171,6 @@ def main() -> None:
     else:
         print("- model integrity: digest unavailable from local runtime")
 
-    # Set runtime configuration before importing the FastAPI application.
     os.environ["OLLAMA_BASE_URL"] = OLLAMA_URL
     os.environ["OLLAMA_MODEL"] = profile.model
     os.environ["OLLAMA_CONTEXT_LENGTH"] = str(profile.context_length)
