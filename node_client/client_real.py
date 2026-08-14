@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-
-import httpx
 
 from node_client.client import heartbeat, register_node, request_with_retry, setup_logging
 from node_client.real_runner import JobRunner
@@ -51,6 +50,7 @@ def loop(config: RealNodeConfig) -> None:
     guard = ResourceGuard(limits(config))
     runner = JobRunner(TaskPolicy.default().__class__(TaskPolicy.default().allowed_job_types, config.max_payload_bytes, config.max_runtime_seconds))
     node_id = register_node(config)  # type: ignore[arg-type]
+    logging.info("community compute enabled by explicit user consent; private coding payloads are rejected by policy")
     while True:
         try:
             heartbeat(config, node_id, "online")  # type: ignore[arg-type]
@@ -77,8 +77,21 @@ def loop(config: RealNodeConfig) -> None:
             time.sleep(config.poll_seconds)
 
 
+def _has_consent(flag: bool) -> bool:
+    if flag:
+        return True
+    if not sys.stdin.isatty():
+        return False
+    print("Ailovanta Community Compute is opt-in.")
+    print("This computer may process PUBLIC or SYNTHETIC AI workloads using idle CPU/GPU resources.")
+    print("Private project inference is not accepted by this worker mode.")
+    print("You can stop the worker at any time with Ctrl+C.")
+    answer = input("Enable community compute on this computer? [y/N] ").strip().lower()
+    return answer in {"y", "yes"}
+
+
 def main() -> None:
-    p = argparse.ArgumentParser(description="Ailovanta real node client")
+    p = argparse.ArgumentParser(description="Ailovanta opt-in real community compute node")
     p.add_argument("--api-url", default="http://127.0.0.1:8000")
     p.add_argument("--contribution", type=int, default=30)
     p.add_argument("--poll-seconds", type=int, default=5)
@@ -91,9 +104,12 @@ def main() -> None:
     p.add_argument("--allow-on-battery", action="store_true")
     p.add_argument("--log-dir", default="runtime_data/logs")
     p.add_argument("--identity-path", default="runtime_data/node_identity.json")
-    p.add_argument("--max-payload-bytes", type=int, default=65536)
-    p.add_argument("--max-runtime-seconds", type=float, default=120.0)
+    p.add_argument("--max-payload-bytes", type=int, default=262144)
+    p.add_argument("--max-runtime-seconds", type=float, default=600.0)
+    p.add_argument("--accept-public-compute", action="store_true", help="Explicitly opt in without an interactive prompt.")
     args = p.parse_args()
+    if not _has_consent(args.accept_public_compute):
+        raise SystemExit("Community compute was not enabled. Nothing was shared or executed.")
     loop(RealNodeConfig(args.api_url.rstrip("/"), args.contribution, args.poll_seconds, args.max_cpu_percent, args.min_free_memory_gb, Path(args.log_dir), Path(args.identity_path), args.max_payload_bytes, args.max_runtime_seconds, args.max_gpu_percent, args.max_gpu_memory_percent, args.max_gpu_temperature_c, args.min_idle_seconds, not args.allow_on_battery))
 
 
