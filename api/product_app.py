@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -32,10 +33,15 @@ app.include_router(build_network_router(scheduler_store))
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+def _front_page() -> Path:
+    mode = os.getenv("AILOVANTA_RUNTIME_MODE", "server-local").strip().lower()
+    return BASE_DIR / ("control.html" if mode == "control-plane" else "coding.html")
+
+
 @app.get("/")
 @app.get("/app")
 def coding_app() -> FileResponse:
-    path = BASE_DIR / "coding.html"
+    path = _front_page()
     if not path.exists():
-        raise HTTPException(status_code=404, detail="coding.html not found")
+        raise HTTPException(status_code=404, detail=f"{path.name} not found")
     return FileResponse(path)
