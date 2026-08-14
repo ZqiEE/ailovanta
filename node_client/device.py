@@ -3,9 +3,11 @@ from __future__ import annotations
 import platform
 import shutil
 import subprocess
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 import psutil
+
+from node_client.ollama_inventory import installed_ollama_models
 
 
 @dataclass
@@ -18,6 +20,7 @@ class DeviceProfile:
     gpu_name: str | None
     gpu_backend: str | None
     gpu_memory_gb: float | None = None
+    ollama_models: list[str] = field(default_factory=list)
 
     def to_api_payload(self, contribution_percent: int) -> dict:
         payload = asdict(self)
@@ -42,6 +45,9 @@ def detect_device() -> DeviceProfile:
         gpu_name=gpu_name,
         gpu_backend="metal" if is_apple else ("nvidia-smi" if gpu_name else None),
         gpu_memory_gb=gpu_memory_gb,
+        # Model tags are private scheduler capability metadata. Public node
+        # discovery deliberately omits this list.
+        ollama_models=installed_ollama_models(),
     )
 
 
