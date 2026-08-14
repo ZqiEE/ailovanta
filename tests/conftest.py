@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from api.node_trust import NodeTrustStore
+
+
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
 
 @pytest.fixture(autouse=True)
