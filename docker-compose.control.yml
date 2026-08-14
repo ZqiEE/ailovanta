@@ -7,6 +7,9 @@ services:
       AILOVANTA_ZERO_CASH_MODE: "true"
       AILOVANTA_PROJECT_ROOT: /app/runtime_data/control_projects
       AILOVANTA_REQUIRE_NODE_PROOF: "true"
+      # Empty by default: /jobs/public-inference returns 503 until the operator
+      # explicitly configures an internal producer token.
+      AILOVANTA_PUBLIC_INFERENCE_TOKEN: ${AILOVANTA_PUBLIC_INFERENCE_TOKEN:-}
     volumes:
       - ailovanta_control_data:/app/runtime_data
 
