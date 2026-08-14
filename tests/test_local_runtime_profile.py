@@ -10,12 +10,19 @@ def _memory(gb: float):
     return SimpleNamespace(total=int(gb * (1024**3)))
 
 
-def test_24gb_gpu_prefers_14b(monkeypatch):
+def test_24gb_gpu_prefers_qwen3_coder_30b(monkeypatch):
     monkeypatch.setattr(model_profile.psutil, "virtual_memory", lambda: _memory(64))
     monkeypatch.setattr(model_profile, "_nvidia_info", lambda: ("RTX 4090", 24.0))
     profile = model_profile.recommend_local_model()
-    assert profile.model == "qwen2.5-coder:14b"
+    assert profile.model == "qwen3-coder:30b"
     assert profile.context_length == 32768
+
+
+def test_16gb_gpu_prefers_14b(monkeypatch):
+    monkeypatch.setattr(model_profile.psutil, "virtual_memory", lambda: _memory(32))
+    monkeypatch.setattr(model_profile, "_nvidia_info", lambda: ("RTX GPU", 16.0))
+    profile = model_profile.recommend_local_model()
+    assert profile.model == "qwen2.5-coder:14b"
 
 
 def test_16gb_ram_falls_back_to_7b(monkeypatch):
