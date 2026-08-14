@@ -17,6 +17,7 @@ class NodeRegister(BaseModel):
     memory_gb: float = Field(ge=0)
     has_gpu: bool = False
     gpu_name: str | None = None
+    gpu_memory_gb: float | None = Field(default=None, ge=0, le=1024)
     contribution_percent: int = Field(default=30, ge=1, le=90)
 
 
@@ -38,6 +39,7 @@ class PublicInferenceRequest(BaseModel):
     privacy_scope: Literal["public", "synthetic"]
     context_length: int = Field(default=16384, ge=2048, le=131072)
     min_memory_gb: float = Field(default=8.0, ge=0, le=512)
+    min_gpu_memory_gb: float = Field(default=6.0, ge=0, le=512)
 
 
 def build_network_router(store: SchedulerStore) -> APIRouter:
@@ -104,6 +106,7 @@ def build_network_router(store: SchedulerStore) -> APIRouter:
             "context_length": body.context_length,
             "requires_gpu": True,
             "min_memory_gb": body.min_memory_gb,
+            "min_gpu_memory_gb": body.min_gpu_memory_gb,
             "priority": 70,
         }
         job = store.enqueue_job(job_id, "coding_inference", payload)
