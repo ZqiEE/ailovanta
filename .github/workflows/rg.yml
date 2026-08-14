@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   rg:
     runs-on: ubuntu-latest
@@ -13,6 +16,18 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install -r requirements.txt
-      - run: python validate.py
-      - run: python -m pytest -q
-      - run: python -c "from api.release_gate import release_gate; r=release_gate(core_path='.', run_tests=False); print(r['stage'])"
+      - name: Compile product code
+        run: python -m compileall -q api node_client scripts
+      - name: Run complete test suite
+        run: python -m pytest -q
+      - name: Verify coding product routes
+        run: |
+          python - <<'PY'
+          from api.product_app import app
+          paths = {route.path for route in app.routes}
+          required = {"/", "/app", "/coding/status", "/coding/projects"}
+          missing = required - paths
+          if missing:
+              raise SystemExit(f"missing product routes: {sorted(missing)}")
+          print("coding product routes ready")
+          PY
