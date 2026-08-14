@@ -2,7 +2,7 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install install-coding validate test api legacy-api coding-up coding-gpu coding-public coding-model cost-status node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
+.PHONY: install install-coding validate test local local-auto api legacy-api coding-up coding-gpu coding-public coding-model cost-status node node-real smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -16,6 +16,14 @@ validate:
 
 test:
 	$(PYTHON) -m pytest -q
+
+# Primary user mode: project files + prompts + inference stay on this computer.
+local:
+	$(PYTHON) -m node_client.local_runtime
+
+# Same as local, but automatically accepts the one-time model download.
+local-auto:
+	$(PYTHON) -m node_client.local_runtime --yes
 
 api:
 	uvicorn api.product_app:app --reload --host $(API_HOST) --port $(API_PORT)
@@ -41,6 +49,9 @@ cost-status:
 
 node:
 	$(PYTHON) node_client/client.py --api-url http://$(API_HOST):$(API_PORT) --contribution 30
+
+node-real:
+	$(PYTHON) node_client/client_real.py --api-url http://$(API_HOST):$(API_PORT) --contribution 30
 
 smoke:
 	$(PYTHON) scripts/smoke_api.py --api-url http://$(API_HOST):$(API_PORT)
