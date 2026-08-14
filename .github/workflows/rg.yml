@@ -20,7 +20,7 @@ jobs:
         run: python -m compileall -q api node_client scripts
       - name: Run complete test suite
         run: python -m pytest -q
-      - name: Verify coding and network routes
+      - name: Verify local coding and network routes
         run: |
           python - <<'PY'
           from api.product_app import app
@@ -32,7 +32,7 @@ jobs:
           missing = required - paths
           if missing:
               raise SystemExit(f"missing product routes: {sorted(missing)}")
-          print("coding + distributed control-plane routes ready")
+          print("local coding + distributed routes ready")
           PY
       - name: Verify local launcher imports
         run: |
@@ -48,5 +48,17 @@ jobs:
         run: docker build -t ailovanta-coding-ci .
       - name: Smoke import lean production image
         run: docker run --rm ailovanta-coding-ci python -c "from api.product_app import app; print(app.title)"
-      - name: Smoke control-plane front page selection
-        run: docker run --rm -e AILOVANTA_RUNTIME_MODE=control-plane ailovanta-coding-ci python -c "from api.product_app import _front_page; p=_front_page(); assert p.name == 'control.html' and p.exists(); print(p)"
+      - name: Verify zero-GPU public control-plane surface
+        run: |
+          docker run --rm -e AILOVANTA_RUNTIME_MODE=control-plane ailovanta-coding-ci python - <<'PY'
+          from api.product_app import app, _front_page
+          paths = {route.path for route in app.routes}
+          assert _front_page().name == "control.html"
+          assert "/control/status" in paths
+          assert "/nodes/register" in paths
+          assert "/network/status" in paths
+          assert "/coding/projects" not in paths
+          assert "/coding/status" not in paths
+          assert "/coding/training/expert" not in paths
+          print("control-plane exposes no private coding workspace routes")
+          PY
