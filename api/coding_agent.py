@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 from api.coding_context import select_project_context
@@ -38,14 +39,48 @@ class CodingAgent:
         except OllamaUnavailable as exc:
             raise CodingAgentError("coding model unavailable: " + str(exc)) from exc
         payload = self._parse(answer)
+        changes = self._validate(payload.get("changes"))
+        reviewed = False
+
+        if self._self_review_enabled() and changes:
+            review_prompt = self._review_prompt(
+                task=clean_task,
+                mode=mode,
+                context=selected["context"],
+                first_payload={
+                    "summary": str(payload.get("summary") or "Code changes proposed"),
+                    "explanation": str(payload.get("explanation") or ""),
+                    "changes": changes,
+                },
+            )
+            try:
+                reviewed_answer = self.model.chat_messages(
+                    [{"role": "user", "content": review_prompt}], mode="coding", memory=[]
+                )
+                reviewed_payload = self._parse(reviewed_answer)
+                reviewed_changes = self._validate(reviewed_payload.get("changes"))
+                if reviewed_changes:
+                    payload = reviewed_payload
+                    changes = reviewed_changes
+                    reviewed = True
+            except (OllamaUnavailable, CodingAgentError):
+                # A failed critique must never destroy a usable first pass.
+                reviewed = False
+
         return {
             "summary": str(payload.get("summary") or "Code changes proposed"),
             "explanation": str(payload.get("explanation") or ""),
-            "changes": self._validate(payload.get("changes")),
+            "changes": changes,
             "model": self.model.config.model,
             "context_files": selected["selected_files"],
             "project_file_count": selected["total_files"],
+            "self_reviewed": reviewed,
+            "inference_passes": 2 if reviewed else 1,
         }
+
+    @staticmethod
+    def _self_review_enabled() -> bool:
+        return os.getenv("AILOVANTA_SELF_REVIEW", "true").strip().lower() not in {"0", "false", "no", "off"}
 
     @staticmethod
     def _prompt(task: str, mode: str, context: str) -> str:
@@ -57,6 +92,20 @@ class CodingAgent:
             "Return JSON only with keys summary, explanation, changes. "
             "Each change is either {path, content} or {path, delete:true}.\n\n"
             + "TASK:\n" + task + "\n\nPROJECT FILES:\n" + context
+        )
+
+    @staticmethod
+    def _review_prompt(task: str, mode: str, context: str, first_payload: dict[str, Any]) -> str:
+        return (
+            "You are the final engineering reviewer for Ailovanta. Review the proposed changes before the user sees them.\n"
+            + MODE_GUIDANCE[mode]
+            + "\nCheck requirement coverage, API consistency, imports, obvious syntax mistakes, cross-file dependencies, "
+            "regressions, security-sensitive mistakes, and whether unrelated behavior was changed. "
+            "Fix the proposal when needed. If it is already correct, return it unchanged. "
+            "Do not invent test results. Return JSON only with keys summary, explanation, changes; each changed file must contain complete contents.\n\n"
+            + "TASK:\n" + task
+            + "\n\nPROJECT CONTEXT:\n" + context
+            + "\n\nFIRST PROPOSAL:\n" + json.dumps(first_payload, ensure_ascii=False)
         )
 
     @staticmethod
