@@ -6,6 +6,16 @@
 
 Ailovanta is being rebuilt around a simple rule: the normal user should not need to understand local-model deployment, quantization, context settings, CUDA tuning, or model routing just to use the GPU they already own.
 
+## Access policy
+
+```text
+Guest mode first.
+No required login.
+No required payment.
+```
+
+Private-local use has no account or paywall requirement. Community compute is a separate explicit opt-in action.
+
 ## Primary product mode: private local
 
 The default user path runs on the user's own computer:
@@ -82,8 +92,9 @@ The product adds a software-engineering layer around the local model:
 3. complete file-level changesets instead of chat snippets;
 4. a second local self-review pass by default;
 5. static validation before any generated file is written;
-6. selective apply, project diff, and ZIP export;
-7. no claim that commands/tests ran unless execution evidence exists.
+6. transactional apply with rollback if a batch fails midway;
+7. selective apply, project diff, and ZIP export;
+8. no claim that commands/tests ran unless execution evidence exists.
 
 The second review pass costs additional local inference time but no model-API money. Set `AILOVANTA_SELF_REVIEW=false` to disable it.
 
@@ -106,6 +117,8 @@ make control-public AILOVANTA_DOMAIN=code.example.com
 
 `docker-compose.control.yml` starts no model runtime. Caddy provides automatic HTTPS. No managed PostgreSQL, managed Redis, paid TLS certificate, object-storage SaaS, analytics SaaS, or commercial model API is required for the baseline deployment.
 
+In `control-plane` mode the private `/coding/projects` and model-generation routes are not registered at all, so the public domain is not an accidental private-code upload endpoint.
+
 ## Optional community compute
 
 A user may explicitly opt in to contribute idle CPU/GPU resources:
@@ -118,14 +131,29 @@ The CLI displays the contribution disclosure and requires confirmation. Non-inte
 
 Community workers:
 
-- report machine capability including GPU memory;
+- do not upload the machine hostname;
+- receive a random node identity and a private device token;
+- authenticate heartbeats, job claims, and result submissions with that device token;
+- report only scheduling-relevant machine capability such as GPU model/memory;
 - obey CPU/GPU/memory/temperature/battery limits;
-- receive work through the SQLite-backed scheduler;
 - can run real `coding_inference` through their own local Ollama;
 - reject `private` or unlabeled coding-inference payloads in worker policy;
 - currently accept only `public` or `synthetic` coding-inference scopes.
 
+Public node discovery is de-identified. Raw node IDs, local hostnames, and job prompts are not returned by the public node/status endpoints.
+
 Private repository inference is **not** sent to random community nodes. Private work belongs on the owner's own Ailovanta Local runtime unless a future explicitly trusted/encrypted mode is selected.
+
+### Public inference queue protection
+
+`POST /jobs/public-inference` is disabled by default. To let an internal product/training service enqueue public or synthetic tasks, configure an operator secret:
+
+```bash
+export AILOVANTA_PUBLIC_INFERENCE_TOKEN='a-long-random-secret'
+make control-public AILOVANTA_DOMAIN=code.example.com
+```
+
+The producer sends that value in `X-Ailovanta-Job-Token`. The same protected token is required to inspect job metadata or fetch completed inference results. Public callers cannot freely queue work onto contributor GPUs.
 
 ## Product workflow
 
@@ -136,11 +164,11 @@ A user can:
 3. ask Ailovanta to build a feature, improve frontend UI, change backend code, or repair a bug;
 4. let the same local model generate and self-review a file-level proposal;
 5. inspect every generated file before applying it;
-6. apply selected files;
+6. apply selected files transactionally;
 7. inspect the unified project diff;
 8. download the modified project as a ZIP.
 
-Generated Python/JSON/TOML/YAML/HTML changes are statically checked before any file in the changeset is written. A broken supported file rejects the entire apply operation.
+Generated Python/JSON/TOML/YAML/HTML changes are statically checked before any file in the changeset is written. Import and edit limits are advertised by `/coding/status`, and the browser importer follows those configured limits rather than hard-coded demo sizes.
 
 ## One model, three strengths
 
@@ -195,7 +223,7 @@ not required:
 - paid monitoring/analytics service
 ```
 
-This does not mean computation has no physical cost: users/contributors consume their own electricity and hardware resources, and the public server still has its normal hosting/bandwidth cost. `GET /coding/cost` reports whether the running process detects optional external-service configuration; secret values are never returned.
+This does not mean computation has no physical cost: users/contributors consume their own electricity and hardware resources, and the public server still has its normal hosting/bandwidth cost. `GET /coding/cost` in a local coding runtime, or `GET /control/status` on the public control plane, reports the configured zero-cash runtime mode without exposing secret values.
 
 ## Main APIs
 
@@ -221,17 +249,19 @@ GET  /coding/projects/{project_id}/export
 Distributed control plane:
 
 ```text
+GET  /control/status
 POST /nodes/register
 POST /nodes/heartbeat
 GET  /network/status
 GET  /network/nodes
 GET  /jobs/next
-GET  /jobs/{job_id}
-POST /jobs/result
-POST /jobs/public-inference
+GET  /jobs/{job_id}             # protected producer token
+GET  /jobs/{job_id}/result      # protected producer token
+POST /jobs/result               # authenticated node token
+POST /jobs/public-inference     # protected producer token; disabled by default
 ```
 
-Training-system APIs remain available:
+Training-system APIs remain available on non-control local/development runtimes:
 
 ```text
 GET  /coding/experts
