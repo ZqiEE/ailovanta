@@ -8,6 +8,12 @@ from api.model_lock import ModelLockStore
 from api.ollama_adapter import OllamaAdapter
 
 
+def _name_matches(installed: str, wanted: str) -> bool:
+    if ":" in wanted:
+        return installed == wanted
+    return installed.split(":", 1)[0] == wanted
+
+
 def coding_model_status(model: OllamaAdapter) -> dict[str, Any]:
     try:
         with httpx.Client(timeout=3.0) as client:
@@ -25,13 +31,10 @@ def coding_model_status(model: OllamaAdapter) -> dict[str, Any]:
     rows = [row for row in payload.get("models", []) if isinstance(row, dict)]
     names = {str(row.get("name") or "") for row in rows}
     wanted = model.config.model
-    wanted_base = wanted.split(":", 1)[0]
-    selected = next((row for row in rows if str(row.get("name") or "") == wanted), None)
-    if selected is None:
-        selected = next(
-            (row for row in rows if str(row.get("name") or "").split(":", 1)[0] == wanted_base),
-            None,
-        )
+    selected = next(
+        (row for row in rows if _name_matches(str(row.get("name") or ""), wanted)),
+        None,
+    )
     digest = str(selected.get("digest") or "") if selected else ""
     details = selected.get("details") if selected and isinstance(selected.get("details"), dict) else {}
     integrity = ModelLockStore().check(wanted, digest or None)
