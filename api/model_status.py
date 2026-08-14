@@ -4,6 +4,7 @@ from typing import Any
 
 import httpx
 
+from api.model_lock import ModelLockStore
 from api.ollama_adapter import OllamaAdapter
 
 
@@ -14,8 +15,33 @@ def coding_model_status(model: OllamaAdapter) -> dict[str, Any]:
             response.raise_for_status()
             payload = response.json()
     except Exception as exc:
-        return {"available": False, "model": model.config.model, "model_present": False, "error": str(exc)}
-    names = {str(row.get("name") or "") for row in payload.get("models", [])}
+        return {
+            "available": False,
+            "model": model.config.model,
+            "model_present": False,
+            "error": str(exc),
+        }
+
+    rows = [row for row in payload.get("models", []) if isinstance(row, dict)]
+    names = {str(row.get("name") or "") for row in rows}
     wanted = model.config.model
-    model_present = wanted in names or any(name.split(":", 1)[0] == wanted.split(":", 1)[0] for name in names)
-    return {"available": True, "model": wanted, "model_present": model_present, "installed_models": sorted(names)}
+    wanted_base = wanted.split(":", 1)[0]
+    selected = next((row for row in rows if str(row.get("name") or "") == wanted), None)
+    if selected is None:
+        selected = next(
+            (row for row in rows if str(row.get("name") or "").split(":", 1)[0] == wanted_base),
+            None,
+        )
+    digest = str(selected.get("digest") or "") if selected else ""
+    details = selected.get("details") if selected and isinstance(selected.get("details"), dict) else {}
+    integrity = ModelLockStore().check(wanted, digest or None)
+    return {
+        "available": True,
+        "model": wanted,
+        "model_present": selected is not None,
+        "model_digest": digest or None,
+        "model_size": selected.get("size") if selected else None,
+        "model_details": details,
+        "integrity": integrity,
+        "installed_models": sorted(names),
+    }
