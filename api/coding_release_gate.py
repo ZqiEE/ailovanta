@@ -12,7 +12,9 @@ REQUIRED_FILES = (
     "control.html",
     "static/coding.css",
     "static/coding.js",
+    "static/bootstrap_query.js",
     "static/import_project.js",
+    "static/local_sync.js",
     "static/privacy_status.js",
     "static/model_integrity.js",
     "start-local.sh",
@@ -25,6 +27,7 @@ REQUIRED_FILES = (
     "api/coding_agent.py",
     "api/project_store.py",
     "api/project_changes.py",
+    "api/local_workspace.py",
     "api/model_lock.py",
     "api/network_routes.py",
     "api/node_capability_store.py",
@@ -73,7 +76,7 @@ paths = {route.path for route in app.routes}
 required = {
     "/", "/app", "/coding/status", "/coding/privacy", "/coding/cost", "/coding/projects",
     "/coding/projects/{project_id}/propose", "/coding/projects/{project_id}/apply",
-    "/nodes/register", "/jobs/next", "/jobs/result",
+    "/coding/projects/{project_id}/sync", "/nodes/register", "/jobs/next", "/jobs/result",
 }
 missing = required - paths
 assert not missing, sorted(missing)
@@ -116,13 +119,14 @@ print("zero-GPU control plane isolated")
         blockers.append("control_plane_isolation_failed")
 
     launcher_code = r'''
+from api.local_workspace import open_local_workspace, sync_local_workspace
 from api.model_lock import ModelLockStore
 from node_client.local_runtime import main
 from node_client.model_profile import recommend_local_model
 from node_client.coding_inference_worker import ALLOWED_NETWORK_PRIVACY_SCOPES
 from node_client.ollama_inventory import installed_ollama_models
 assert ALLOWED_NETWORK_PRIVACY_SCOPES == {"public", "synthetic"}
-print("local launcher, model lock, and community worker policy import")
+print("local launcher, repo sync, model lock, and community worker policy import")
 '''
     checks["local_launcher"] = _run(base, launcher_code)
     if not checks["local_launcher"]["ok"]:
@@ -130,6 +134,8 @@ print("local launcher, model lock, and community worker policy import")
 
     network_code = r'''
 from api.network_routes import PublicInferenceRequest
+from api.node_capability_store import NodeCapabilityStore
+from api.ip_rate_guard import IpRateGuard
 from pydantic import ValidationError
 try:
     PublicInferenceRequest(prompt="private", privacy_scope="private")
@@ -137,7 +143,7 @@ except ValidationError:
     pass
 else:
     raise AssertionError("private public-inference scope accepted")
-print("private scope impossible on public inference schema")
+print("private scope impossible; model-aware scheduler and enrollment guard import")
 '''
     checks["network_privacy"] = _run(base, network_code, {"AILOVANTA_PUBLIC_INFERENCE_TOKEN": ""})
     if not checks["network_privacy"]["ok"]:
