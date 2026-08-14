@@ -1,3 +1,5 @@
+import hashlib
+
 from api.artifact_binding import ArtifactBindingStore
 from api.chain_registry import ChainRegistry
 from api.core_result_store import CoreResultStore
@@ -9,12 +11,12 @@ from api.runtime_store import RuntimeStore
 VALID_ARTIFACT_HASH = "sha256:" + ("c" * 64)
 
 
-def payload(ref: str) -> dict:
+def payload(ref: str, artifact_hash: str = VALID_ARTIFACT_HASH) -> dict:
     return {
         "plan": {"model": {"model_id": "ailovanta-owned"}},
         "artifact": {
             "artifact_id": "artifact_1",
-            "artifact_hash": VALID_ARTIFACT_HASH,
+            "artifact_hash": artifact_hash,
             "model_id": "ailovanta-owned",
             "version": "candidate",
             "source_plan_id": "plan_1",
@@ -37,7 +39,8 @@ def stores(tmp_path):
 def test_check_runtime_ref_ready_file(tmp_path) -> None:
     ckpt = tmp_path / "checkpoint.bin"
     ckpt.write_text('{"backend":"jsonl-stat","token_count":3}', encoding="utf-8")
-    result = import_foundation_result(payload("file://" + str(ckpt)), **stores(tmp_path))
+    digest = "sha256:" + hashlib.sha256(ckpt.read_bytes()).hexdigest()
+    result = import_foundation_result(payload("file://" + str(ckpt), digest), **stores(tmp_path))
     assert result["runtime_ref_check"]["ready"] is True
     assert result["artifact_binding"]["status"] == "active"
 
