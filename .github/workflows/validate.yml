@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
