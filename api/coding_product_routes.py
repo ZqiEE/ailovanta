@@ -59,6 +59,7 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
             "local_usage_policy": usage_guard.policy(),
             "modes": ["auto", "frontend", "backend", "repair"],
             "max_files": projects.max_files,
+            "max_file_bytes": projects.max_file_bytes,
             "max_project_bytes": projects.max_project_bytes,
         }
 
@@ -103,14 +104,26 @@ def build_coding_product_router(store: ProjectStore | None = None) -> APIRouter:
         try:
             if not body.files or len(body.files) > projects.max_files:
                 raise ProjectStoreError("invalid import file count")
-            projects.reset_files(project_id)
             total = 0
+            seen: set[str] = set()
+            prepared: list[tuple[str, str]] = []
+            # Validate the whole import before deleting the current project.
             for row in body.files:
+                path = projects.safe_path(row.path).as_posix()
+                if path in seen:
+                    raise ProjectStoreError("import contains duplicate path: " + path)
+                seen.add(path)
                 raw = row.content.encode("utf-8")
                 total += len(raw)
-                if len(raw) > projects.max_file_bytes or total > projects.max_project_bytes:
-                    raise ProjectStoreError("import exceeds project limits")
-                projects.seed_file(project_id, row.path, row.content)
+                if len(raw) > projects.max_file_bytes:
+                    raise ProjectStoreError("import file exceeds size limit: " + path)
+                if total > projects.max_project_bytes:
+                    raise ProjectStoreError("import exceeds project size limit")
+                prepared.append((path, row.content))
+
+            projects.reset_files(project_id)
+            for path, content in prepared:
+                projects.seed_file(project_id, path, content)
             return projects.update_meta(project_id, source="github" if body.source_url else "import", source_url=body.source_url)
         except ProjectStoreError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
