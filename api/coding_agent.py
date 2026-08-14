@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from api.coding_context import select_project_context
 from api.ollama_adapter import OllamaAdapter, OllamaUnavailable
 from api.project_store import ProjectStore
 
@@ -27,9 +28,11 @@ class CodingAgent:
     def propose(self, project_id: str, task: str, mode: str = "auto") -> dict[str, Any]:
         if mode not in MODE_GUIDANCE:
             raise CodingAgentError("invalid coding mode")
-        if not task.strip():
+        clean_task = task.strip()
+        if not clean_task:
             raise CodingAgentError("task is required")
-        prompt = self._prompt(task.strip(), mode, self.store.context(project_id))
+        selected = select_project_context(self.store, project_id, clean_task)
+        prompt = self._prompt(clean_task, mode, selected["context"])
         try:
             answer = self.model.chat_messages([{"role": "user", "content": prompt}], mode="coding", memory=[])
         except OllamaUnavailable as exc:
@@ -40,6 +43,8 @@ class CodingAgent:
             "explanation": str(payload.get("explanation") or ""),
             "changes": self._validate(payload.get("changes")),
             "model": self.model.config.model,
+            "context_files": selected["selected_files"],
+            "project_file_count": selected["total_files"],
         }
 
     @staticmethod
