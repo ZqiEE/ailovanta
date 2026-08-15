@@ -15,7 +15,7 @@ No OpenAI, Anthropic, Gemini, hosted database, hosted vector store, or paid mode
 ### macOS / Linux
 
 ```bash
-git clone -b agent/rebuild-coding-model-factory https://github.com/ZqiEE/ailovanta.git
+git clone https://github.com/ZqiEE/ailovanta.git
 cd ailovanta
 bash start-local.sh --project /absolute/path/to/your/repo
 ```
@@ -23,7 +23,7 @@ bash start-local.sh --project /absolute/path/to/your/repo
 ### Windows PowerShell
 
 ```powershell
-git clone -b agent/rebuild-coding-model-factory https://github.com/ZqiEE/ailovanta.git
+git clone https://github.com/ZqiEE/ailovanta.git
 cd ailovanta
 .\start-local.ps1 --project C:\absolute\path\to\your\repo
 ```
@@ -113,7 +113,7 @@ Community compute is a different, explicit opt-in mode. Community workers accept
 The public domain does not need a model GPU or Ollama:
 
 ```bash
-git clone -b agent/rebuild-coding-model-factory https://github.com/ZqiEE/ailovanta.git
+git clone https://github.com/ZqiEE/ailovanta.git
 cd ailovanta
 make control-public AILOVANTA_DOMAIN=code.example.com
 ```
