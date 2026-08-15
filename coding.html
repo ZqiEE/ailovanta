@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ailovanta Coding</title>
+<link rel="stylesheet" href="/static/coding.css" />
+</head>
+<body>
+<div class="app">
+<header><div><div class="brand">Ailovanta Coding</div><div class="sub">One model for frontend, backend and repair</div></div><div class="status"><span><i id="apiDot" class="dot"></i> <span id="apiText">connecting</span></span><span id="modelText">model: —</span><span id="privacyText">privacy: checking</span></div></header>
+<main>
+<aside class="pane side">
+<div class="sectionTitle">Projects</div><div class="actions"><button class="btn" id="newProject">New</button><button class="btn" id="importProject">Import</button></div><div class="list" id="projectList"></div>
+<div class="sectionTitle">Files</div><div class="actions"><button class="btn" id="newFile">Add file</button><button class="btn danger" id="deleteFile">Delete</button></div><div class="list" id="fileList"></div>
+</aside>
+<section class="pane editorPane">
+<div class="editorTop"><div class="filePath" id="currentPath">No file selected</div><button class="btn" id="saveFile">Save</button></div>
+<textarea class="editor" id="editor" spellcheck="false" placeholder="Create a project and add source files."></textarea>
+<div class="editorBottom"><span id="editorState">Ready</span><span id="sizeState">0 chars</span></div>
+</section>
+<section class="pane agent">
+<div class="agentTop"><div class="row"><select id="mode"><option value="auto">Auto</option><option value="frontend">Frontend</option><option value="backend">Backend</option><option value="repair">Repair / Debug</option></select><button class="btn" id="refreshDiff">Diff</button><button class="btn" id="downloadZip">Download</button><button class="btn success" id="syncDisk" style="display:none">Sync to disk</button></div><textarea class="task" id="task" placeholder="Describe what you want changed in this project..."></textarea><button class="btn primary" id="generate">Generate changes</button></div>
+<div class="agentBody" id="agentBody"><div class="empty">Ailovanta reads the current project and proposes file-level changes. Review them before applying.</div></div>
+<div class="agentBottom"><button class="btn success" id="apply" disabled>Apply selected</button><button class="btn" id="discard" disabled>Discard</button></div>
+</section>
+</main>
+</div>
+<div class="modal" id="modal"><div class="modalBox"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="modalActions"><button class="btn" id="modalCancel">Cancel</button><button class="btn primary" id="modalOk">Continue</button></div></div></div>
+<div class="toast" id="toast"></div>
+<script src="/static/bootstrap_query.js"></script>
+<script src="/static/coding.js"></script>
+<script src="/static/import_project.js"></script>
+<script src="/static/proposal_preview.js"></script>
+<script src="/static/privacy_status.js"></script>
+<script src="/static/model_integrity.js"></script>
+<script src="/static/local_sync.js"></script>
+</body>
+</html>

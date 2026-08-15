@@ -1,253 +1,281 @@
-# Ailovanta
+# Ailovanta Coding
 
 [![Ailovanta CI](https://github.com/ZqiEE/ailovanta/actions/workflows/validate.yml/badge.svg)](https://github.com/ZqiEE/ailovanta/actions/workflows/validate.yml)
 
-> AI powered by the world's distributed compute.
+**Your GPU. Your code. One coding model for frontend, backend engineering, and repair.**
 
-Ailovanta is a distributed AI compute network MVP. The current public product path is **guest-first chat**: open the app, ask a question, keep conversation history, and continue without login or payment.
+Ailovanta is being rebuilt around a simple rule: the normal user should not need to understand local-model deployment, quantization, context settings, CUDA tuning, or model routing just to use the GPU they already own.
 
-## Current MVP rule
+## Access policy
 
 ```text
+Guest mode first.
 No required login.
 No required payment.
-No required wallet.
-Guest mode first.
 ```
 
-GitHub OAuth and payment docs may exist for later, but they are not the default user path.
+Private-local use has no account or paywall requirement. Community compute is a separate explicit opt-in action.
 
-## Owned runtime loop
+## Primary product mode: private local
 
-Ailovanta now also contains a local owned-model loop scaffold. This is not a claim that a production foundation model has already been trained. It is the code path that prepares the system for real training nodes, real GPU work, real artifacts, and trusted runtime routing.
-
-Run the local loop:
-
-```bash
-python scripts/aio.py --core-path ../ailovanta-core
-```
-
-The all-in-one runner executes:
+The default user path runs on the user's own computer:
 
 ```text
-preflight
--> local plan
--> node trust registration
--> signed node result
--> proof-required receipt export
--> core checkpoint set
--> foundation artifact v2
--> promotion gate with proof/trust guardrails
--> gated runtime apply
--> final report
+browser workspace
+    -> local FastAPI
+    -> local project files
+    -> local Ollama
+    -> user's own GPU / CPU
 ```
 
-Successful output ends with:
+In `private-local` mode:
 
-```json
-{
-  "ok": true,
-  "final": {
-    "stage": "runtime_ready"
-  }
-}
-```
+- project files stay on that computer;
+- prompts stay on that computer;
+- model output stays on that computer;
+- OpenAI / Anthropic / Gemini APIs are not required;
+- telemetry is not required;
+- the UI binds to loopback by default;
+- the selected checkpoint is visible and verifiable by the user.
 
-Important boundaries:
+Run it:
 
-```text
-The local loop is a code-level demo scaffold.
-Real GPU training, real remote workers, real model weights, and real chain anchoring still require production infrastructure.
-```
-
-## Current model backend truth
-
-The current chat inference path uses a **local bootstrap runtime** through Ollama. It is not Alibaba Cloud, not DashScope, and not yet a production Ailovanta-owned foundation model.
-
-The intended Ailovanta-owned model path is:
-
-```text
-public learning events
--> AutoTruth / training pack
--> foundation plan
--> distributed node work
--> signed checkpoint receipts
--> checkpoint set
--> foundation artifact
--> promotion gate
--> artifact binding
--> runtime preparation
--> checked owned-chat
-```
-
-See `docs/LOCAL_LOOP.md`, `docs/NODE_TRUST.md`, `docs/RFLOW.md`, and `docs/AUTO_RUNTIME.md` for the owned loop pieces.
-
-## What it is
-
-Ailovanta explores a simple loop:
-
-```text
-people run useful machines
--> the network gets compute
--> compute runs AI jobs
--> results are verified
--> useful contributors earn access and reputation
-```
-
-The repository is not claiming a finished global training network. It is a working local foundation for the public layer: guest chat, persistent conversations, native run API, compatibility chat API, node registration, heartbeat, job dispatch, result submission, verification, training job records, model version records, runtime routing, dashboard data, local AI fallback, and an owned-runtime loop scaffold.
-
-## Main user path
-
-```text
-1. Open /app.
-2. Browser creates guest_id.
-3. User sends a message.
-4. Frontend calls POST /ailovanta/v1/chat.
-5. Backend creates or reuses conversation_id.
-6. Backend saves user and assistant messages.
-7. Backend uses recent conversation history for follow-up turns.
-8. User can reload, continue, load, or delete conversations.
-```
-
-## Main APIs
-
-```text
-POST /ailovanta/v1/chat
-GET  /ailovanta/v1/conversations
-GET  /ailovanta/v1/conversations/{conversation_id}/messages
-DELETE /ailovanta/v1/conversations/{conversation_id}
-
-POST /ailovanta/v1/run
-POST /v1/chat/completions
-
-GET  /reputation/leaderboard
-GET  /reputation/summary
-
-POST /usage/events
-GET  /usage/events
-GET  /usage/summary
-
-POST /rflow2/run
-POST /obx2/submit
-POST /gg/run
-POST /apply/result
-POST /parcel-export/receipts
-```
-
-## Repositories
-
-Public repository:
-
-```bash
-git clone https://github.com/ZqiEE/ailovanta.git
-```
-
-Private core repository:
-
-```text
-https://github.com/ZqiEE/ailovanta-core.git
-```
-
-## Current MVP features
-
-- Guest-first chat UI in `index.html`
-- No login wall and no payment wall
-- Browser `guest_id`
-- Conversation list, load, new chat, and delete chat
-- Native chat endpoint: `/ailovanta/v1/chat`
-- Native run endpoint: `/ailovanta/v1/run`
-- Persistent conversation store
-- Conversation context builder
-- Ollama adapter with chat-history support
-- Compatibility chat endpoint: `/v1/chat/completions`
-- Runtime model manifest registry
-- Runtime node registry
-- Runtime assignment history
-- Warm-cache, trust, privacy, latency, price, and GPU-memory-aware Runtime Router
-- Node registration and heartbeat
-- Job queue and result submission
-- Lightweight result verification
-- Reputation endpoints
-- Usage event endpoints
-- Training job planner
-- Model version registry
-- Proof-gated checkpoint receipts
-- Node trust registry
-- Foundation artifact binding
-- Runtime preparation diagnostics
-- Local owned-runtime loop runner
-- Docker / Compose files
-- Validation script and pytest suite
-
-## Quickstart
+### macOS / Linux
 
 ```bash
 git clone https://github.com/ZqiEE/ailovanta.git
 cd ailovanta
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python validate.py
-python -m pytest -q
-uvicorn api.main:app --reload
+bash start-local.sh
 ```
 
-Windows PowerShell:
+### Windows PowerShell
 
 ```powershell
 git clone https://github.com/ZqiEE/ailovanta.git
 cd ailovanta
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python validate.py
-python -m pytest -q
-uvicorn api.main:app --reload
+.\start-local.ps1
 ```
 
-Owned loop local check:
+The launcher creates a local Python environment, detects available hardware, starts/reuses local Ollama, chooses a practical model profile, offers the one-time model download when needed, starts Ailovanta on `127.0.0.1:8765`, and opens the workspace.
+
+You can also run:
 
 ```bash
-python scripts/preflight.py --core-path ../ailovanta-core
-python scripts/aio.py --core-path ../ailovanta-core
+make install-coding
+make local
 ```
 
-Open after the API starts:
+## Hardware-aware bootstrap models
+
+The final product target is an Ailovanta-owned unified checkpoint. Until that checkpoint is trained, local mode automatically selects an open bootstrap coder according to the machine rather than forcing every user onto one model size.
+
+Current policy is approximately:
 
 ```text
-App:       http://127.0.0.1:8000/app
-API docs:  http://127.0.0.1:8000/docs
-Dashboard: http://127.0.0.1:8000/dashboard
+22GB+ NVIDIA VRAM + 32GB+ RAM -> qwen3-coder:30b
+14GB+ NVIDIA VRAM             -> qwen2.5-coder:14b
+8GB+ NVIDIA VRAM              -> qwen2.5-coder:7b
+Apple Silicon 48GB+           -> qwen3-coder:30b
+Apple Silicon 24GB+           -> qwen2.5-coder:14b
+16GB+ system RAM              -> qwen2.5-coder:7b
+lower-memory fallback         -> qwen2.5-coder:3b
 ```
 
-## Local check
+The policy deliberately leaves memory for KV cache and the workspace instead of selecting the largest model that can barely load. Users can override model/context from the local launcher.
+
+## Why this is not just Ollama with a UI
+
+The product adds a software-engineering layer around the local model:
+
+1. repository-aware context selection instead of dumping the whole repo into a small model;
+2. Frontend / Backend / Repair behavior modes using the same deployed checkpoint;
+3. complete file-level changesets instead of chat snippets;
+4. a second local self-review pass by default;
+5. static validation before any generated file is written;
+6. transactional apply with rollback if a batch fails midway;
+7. selective apply, project diff, and ZIP export;
+8. no claim that commands/tests ran unless execution evidence exists.
+
+The second review pass costs additional local inference time but no model-API money. Set `AILOVANTA_SELF_REVIEW=false` to disable it.
+
+## Public server: control plane, not inference plane
+
+The public domain does **not** need a GPU or Ollama. Its job is to distribute the product and coordinate the opt-in network.
+
+```text
+public domain
+    -> Caddy HTTPS
+    -> FastAPI control plane
+    -> SQLite scheduler / node metadata
+```
+
+Deploy with only a server + domain:
 
 ```bash
-python validate.py
-python -m pytest -q
+make control-public AILOVANTA_DOMAIN=code.example.com
 ```
 
-## Docs
+`docker-compose.control.yml` starts no model runtime. Caddy provides automatic HTTPS. No managed PostgreSQL, managed Redis, paid TLS certificate, object-storage SaaS, analytics SaaS, or commercial model API is required for the baseline deployment.
 
-- `docs/LOCAL_LOOP.md` — one-command local owned-runtime loop
-- `docs/NODE_TRUST.md` — node proof and trust registry
-- `docs/RFLOW.md` — receipt flow from submitted outputs to runtime path
-- `docs/AUTO_RUNTIME.md` — autonomous runtime preparation
-- `docs/MODEL_BACKEND.md` — current bootstrap model boundary and Ailovanta-owned model path
-- `docs/NEXT_STAGE_PRD.md` — guest chat core product requirements
-- `docs/NEXT_STAGE_CODEX_TASKS.md` — execution plan for guest chat core
-- `docs/AUTH_MODEL.md` — guest-first access model
-- `docs/PAYMENT_MODEL.md` — payment deferred model
-- `docs/NATIVE_RUN_API.md` — native run API guide
-- `docs/V1_CHAT_API.md` — compatibility chat API guide
-- `docs/RUNTIME_DEMO.md` — runtime demo guide
-- `docs/MODEL_RUNTIME_ARCHITECTURE.md` — model storage, runtime, routing, and trust architecture
-- `docs/CORE_INTEGRATION_PLAN.md` — public/core integration plan
+In `control-plane` mode the private `/coding/projects` and model-generation routes are not registered at all, so the public domain is not an accidental private-code upload endpoint.
 
-## Final product principle
+## Optional community compute
+
+A user may explicitly opt in to contribute idle CPU/GPU resources:
+
+```bash
+python -m node_client.client_real --api-url https://code.example.com --contribution 30
+```
+
+The CLI displays the contribution disclosure and requires confirmation. Non-interactive operation requires the explicit `--accept-public-compute` flag.
+
+Community workers:
+
+- do not upload the machine hostname;
+- receive a random node identity and a private device token;
+- authenticate heartbeats, job claims, and result submissions with that device token;
+- report only scheduling-relevant machine capability such as GPU model/memory;
+- obey CPU/GPU/memory/temperature/battery limits;
+- can run real `coding_inference` through their own local Ollama;
+- reject `private` or unlabeled coding-inference payloads in worker policy;
+- currently accept only `public` or `synthetic` coding-inference scopes.
+
+Public node discovery is de-identified. Raw node IDs, local hostnames, and job prompts are not returned by the public node/status endpoints.
+
+Private repository inference is **not** sent to random community nodes. Private work belongs on the owner's own Ailovanta Local runtime unless a future explicitly trusted/encrypted mode is selected.
+
+### Public inference queue protection
+
+`POST /jobs/public-inference` is disabled by default. To let an internal product/training service enqueue public or synthetic tasks, configure an operator secret:
+
+```bash
+export AILOVANTA_PUBLIC_INFERENCE_TOKEN='a-long-random-secret'
+make control-public AILOVANTA_DOMAIN=code.example.com
+```
+
+The producer sends that value in `X-Ailovanta-Job-Token`. The same protected token is required to inspect job metadata or fetch completed inference results. Public callers cannot freely queue work onto contributor GPUs.
+
+## Product workflow
+
+A user can:
+
+1. create a project or import a source folder;
+2. browse and edit project files;
+3. ask Ailovanta to build a feature, improve frontend UI, change backend code, or repair a bug;
+4. let the same local model generate and self-review a file-level proposal;
+5. inspect every generated file before applying it;
+6. apply selected files transactionally;
+7. inspect the unified project diff;
+8. download the modified project as a ZIP.
+
+Generated Python/JSON/TOML/YAML/HTML changes are statically checked before any file in the changeset is written. Import and edit limits are advertised by `/coding/status`, and the browser importer follows those configured limits rather than hard-coded demo sizes.
+
+## One model, three strengths
+
+The product exposes:
 
 ```text
-First prove value.
-Then add identity.
-Then add payment.
+Auto
+Frontend
+Backend
+Repair / Debug
 ```
+
+These modes use the **same deployed checkpoint**. They are not runtime routing to Gemini, Claude, or Codex.
+
+The owned-model training target is:
+
+```text
+Frontend specialist
+  -> visual UI / browser / responsive / interaction quality
+
+Backend specialist
+  -> repository engineering / APIs / databases / tests
+
+Repair specialist
+  -> reproduce / diagnose / patch / regression control
+
+three same-base specialists
+  -> unification
+  -> one Ailovanta-owned coding checkpoint
+```
+
+The repository does **not** claim that the proprietary three-stream distilled checkpoint already exists. Open bootstrap models are temporary runtime weights; the surrounding product, verifier, distributed network, and training architecture are designed so the owned checkpoint can replace them later without changing the user workflow.
+
+## Zero-cash baseline
+
+For the company/operator, baseline required cash infrastructure is intended to be:
+
+```text
+required:
+- one ordinary public server
+- one domain
+
+not required:
+- central inference GPU
+- OpenAI API
+- Anthropic API
+- Gemini API
+- managed Redis
+- managed PostgreSQL
+- managed object storage
+- paid TLS certificate
+- paid monitoring/analytics service
+```
+
+This does not mean computation has no physical cost: users/contributors consume their own electricity and hardware resources, and the public server still has its normal hosting/bandwidth cost. `GET /coding/cost` in a local coding runtime, or `GET /control/status` on the public control plane, reports the configured zero-cash runtime mode without exposing secret values.
+
+## Main APIs
+
+Private/local product:
+
+```text
+GET  /coding/status
+GET  /coding/privacy
+GET  /coding/cost
+POST /coding/projects
+GET  /coding/projects
+GET  /coding/projects/{project_id}
+GET  /coding/projects/{project_id}/file
+PUT  /coding/projects/{project_id}/file
+DELETE /coding/projects/{project_id}/file
+POST /coding/projects/{project_id}/import
+POST /coding/projects/{project_id}/propose
+POST /coding/projects/{project_id}/apply
+GET  /coding/projects/{project_id}/diff
+GET  /coding/projects/{project_id}/export
+```
+
+Distributed control plane:
+
+```text
+GET  /control/status
+POST /nodes/register
+POST /nodes/heartbeat
+GET  /network/status
+GET  /network/nodes
+GET  /jobs/next
+GET  /jobs/{job_id}             # protected producer token
+GET  /jobs/{job_id}/result      # protected producer token
+POST /jobs/result               # authenticated node token
+POST /jobs/public-inference     # protected producer token; disabled by default
+```
+
+Training-system APIs remain available on non-control local/development runtimes:
+
+```text
+GET  /coding/experts
+POST /coding/training/expert
+POST /coding/training/next
+POST /coding/training/unify
+```
+
+## Validation
+
+```bash
+make validate
+```
+
+CI compiles the product, runs the complete pytest suite, validates deployment configuration, builds the lean production image, and smoke-imports the real `api.product_app`.
+
+See `docs/CODING_REBUILD.md` for the specialist/unification design. The private `ailovanta-core` repository retains H-SwarmTrain and the deeper distributed training core.

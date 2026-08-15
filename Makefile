@@ -2,22 +2,61 @@ PYTHON ?= python
 API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 
-.PHONY: install validate test api node smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
+.PHONY: install install-coding validate test local local-auto api legacy-api control-public coding-up coding-gpu coding-public coding-model cost-status node node-real smoke maintain demo-training worker-check worker-report worker-reports export-reports data-demo data-report ledger-demo ledger-report chain-demo chain-export chain-submit model-demo model-report clean
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
 
+install-coding:
+	$(PYTHON) -m pip install -r requirements-coding.txt
+
 validate:
-	$(PYTHON) validate.py
+	$(PYTHON) -m compileall -q api node_client scripts
+	$(PYTHON) -m pytest -q
 
 test:
 	$(PYTHON) -m pytest -q
 
+# Primary user mode: project files + prompts + inference stay on this computer.
+local:
+	$(PYTHON) -m node_client.local_runtime
+
+# Same as local, but automatically accepts the one-time model download.
+local-auto:
+	$(PYTHON) -m node_client.local_runtime --yes
+
 api:
+	uvicorn api.product_app:app --reload --host $(API_HOST) --port $(API_PORT)
+
+legacy-api:
 	uvicorn api.main:app --reload --host $(API_HOST) --port $(API_PORT)
+
+# Public domain/control plane: no Ollama or server GPU required.
+control-public:
+	@test -n "$(AILOVANTA_DOMAIN)" || (echo "Set AILOVANTA_DOMAIN=code.example.com" && exit 1)
+	AILOVANTA_DOMAIN=$(AILOVANTA_DOMAIN) docker compose -f docker-compose.control.yml up -d --build
+
+coding-up:
+	docker compose -f docker-compose.coding.yml up -d --build
+
+coding-gpu:
+	docker compose -f docker-compose.coding.yml -f docker-compose.gpu.yml up -d --build
+
+coding-public:
+	@test -n "$(AILOVANTA_DOMAIN)" || (echo "Set AILOVANTA_DOMAIN=code.example.com" && exit 1)
+	AILOVANTA_DOMAIN=$(AILOVANTA_DOMAIN) docker compose -f docker-compose.coding.yml --profile public up -d --build
+
+coding-model:
+	docker compose -f docker-compose.coding.yml exec ollama ollama pull $${OLLAMA_MODEL:-qwen2.5-coder:7b}
+
+cost-status:
+	curl -fsS http://$(API_HOST):$(API_PORT)/coding/cost
 
 node:
 	$(PYTHON) node_client/client.py --api-url http://$(API_HOST):$(API_PORT) --contribution 30
+
+node-real:
+	$(PYTHON) node_client/client_real.py --api-url http://$(API_HOST):$(API_PORT) --contribution 30
 
 smoke:
 	$(PYTHON) scripts/smoke_api.py --api-url http://$(API_HOST):$(API_PORT)

@@ -12,6 +12,7 @@ ALLOWED_JOB_TYPES = {
     "verification",
     "lora_micro",
     "model_shard",
+    "coding_inference",
 }
 
 
@@ -33,4 +34,8 @@ class TaskPolicy:
         payload_size = len(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
         if payload_size > self.max_payload_bytes:
             return False, f"payload too large: {payload_size} bytes"
+        if job_type == "coding_inference":
+            scope = str(payload.get("privacy_scope") or "").lower()
+            if scope not in {"public", "synthetic"}:
+                return False, "community inference accepts only public or synthetic tasks"
         return True, "accepted"

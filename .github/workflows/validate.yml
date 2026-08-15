@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -14,7 +17,7 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Validate repository
-        run: python validate.py
+      - name: Compile Python modules
+        run: python -m compileall -q api node_client scripts
       - name: Run tests
         run: python -m pytest -q

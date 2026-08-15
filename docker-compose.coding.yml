@@ -1,0 +1,49 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5-coder:7b}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-32768}
+      AILOVANTA_PROJECT_ROOT: /app/runtime_data/coding_projects
+      AILOVANTA_ZERO_CASH_MODE: "true"
+      AILOVANTA_ENV: production
+      AILOVANTA_REQUIRE_NODE_PROOF: "true"
+    volumes:
+      - ailovanta_data:/app/runtime_data
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+    volumes:
+      - ollama_data:/root/.ollama
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    profiles: ["public"]
+    environment:
+      AILOVANTA_DOMAIN: ${AILOVANTA_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  ailovanta_data:
+  ollama_data:
+  caddy_data:
+  caddy_config:

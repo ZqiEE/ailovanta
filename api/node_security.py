@@ -13,7 +13,19 @@ class NodeTokenStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         if not self.path.exists():
-            self.path.write_text("{}", encoding="utf-8")
+            self._write({})
+        else:
+            self._protect()
+
+    def _protect(self) -> None:
+        try:
+            os.chmod(self.path, 0o600)
+        except OSError:
+            pass
+
+    def _write(self, data: dict[str, Any]) -> None:
+        self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._protect()
 
     def all(self) -> dict[str, Any]:
         try:
@@ -25,7 +37,7 @@ class NodeTokenStore:
         token = hashlib.sha256(os.urandom(32)).hexdigest()
         data = self.all()
         data[node_id] = {"token_hash": hash_token(token)}
-        self.path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._write(data)
         return {"node_id": node_id, "token": token, "token_preview": token[:8] + "..."}
 
     def verify(self, token: str | None, node_id: str | None = None) -> bool:
@@ -67,4 +79,8 @@ def save_node_token(path: str | Path = "runtime_data/node_token.txt") -> dict[st
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(token, encoding="utf-8")
+    try:
+        os.chmod(p, 0o600)
+    except OSError:
+        pass
     return {"path": str(p), "token_preview": token[:8] + "..."}

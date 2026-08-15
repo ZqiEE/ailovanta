@@ -54,8 +54,9 @@ def float_env(name: str, default: float) -> float:
 def load_config() -> ProductionConfig:
     database_url = os.getenv("DATABASE_URL", "sqlite:///runtime_data/scheduler.sqlite3")
     redis_url = os.getenv("REDIS_URL")
+    env = os.getenv("AILOVANTA_ENV", "local")
     return ProductionConfig(
-        env=os.getenv("AILOVANTA_ENV", "local"),
+        env=env,
         public_base_url=os.getenv("AILOVANTA_PUBLIC_BASE_URL"),
         artifact_store=os.getenv("AILOVANTA_ARTIFACT_STORE", "local"),
         artifact_store_uri=os.getenv("AILOVANTA_ARTIFACT_STORE_URI"),
@@ -66,7 +67,7 @@ def load_config() -> ProductionConfig:
         node_trust_path=os.getenv("AILOVANTA_NODE_TRUST_PATH", "runtime_data/node_trust.sqlite3"),
         runtime_path=os.getenv("AILOVANTA_RUNTIME_PATH", "runtime_data/runtime.sqlite3"),
         route_book_path=os.getenv("AILOVANTA_ROUTE_BOOK_PATH", "runtime_data/route_book.sqlite3"),
-        require_node_proof=bool_env("AILOVANTA_REQUIRE_NODE_PROOF", True),
+        require_node_proof=bool_env("AILOVANTA_REQUIRE_NODE_PROOF", env != "local"),
         min_proof_coverage=float_env("AILOVANTA_MIN_PROOF_COVERAGE", 0.8),
         min_avg_trust_score=float_env("AILOVANTA_MIN_AVG_TRUST_SCORE", 0.75),
         database_url=database_url,

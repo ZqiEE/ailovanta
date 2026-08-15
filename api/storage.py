@@ -15,11 +15,7 @@ def row_to_dict(row: sqlite3.Row | None) -> dict | None:
 
 
 class SchedulerStore:
-    """SQLite-backed local scheduler store.
-
-    v1.6 adds task routing, priority ordering, and node capability matching.
-    The same API can later be backed by PostgreSQL and Redis.
-    """
+    """SQLite-backed scheduler and lightweight distributed control-plane store."""
 
     def __init__(self, path: str | Path = "runtime_data/scheduler.sqlite3") -> None:
         self.path = Path(path)
@@ -42,6 +38,7 @@ class SchedulerStore:
                     memory_gb REAL NOT NULL,
                     has_gpu INTEGER NOT NULL,
                     gpu_name TEXT,
+                    gpu_memory_gb REAL,
                     contribution_percent INTEGER NOT NULL,
                     score INTEGER NOT NULL,
                     trust INTEGER NOT NULL DEFAULT 30,
@@ -92,6 +89,11 @@ class SchedulerStore:
                 );
                 """
             )
+            # Existing installations predate gpu_memory_gb. SQLite ALTER is
+            # deliberately simple so an old node DB upgrades in place.
+            columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(nodes)").fetchall()}
+            if "gpu_memory_gb" not in columns:
+                conn.execute("ALTER TABLE nodes ADD COLUMN gpu_memory_gb REAL")
 
     def seed_jobs(self) -> None:
         seeds = [
@@ -119,16 +121,19 @@ class SchedulerStore:
 
     def register_node(self, body: dict[str, Any]) -> dict:
         node_id = body.get("node_id") or "node_" + uuid4().hex[:12]
+        gpu_memory_gb = body.get("gpu_memory_gb")
         score = body["cpu_threads"] * 8 + int(body["memory_gb"] * 10) + (60 if body.get("has_gpu") else 10)
+        if gpu_memory_gb:
+            score += int(float(gpu_memory_gb) * 4)
         existing = self.get_node(node_id)
         trust = existing.get("trust", 30) if existing else 30
         with self.connect() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO nodes (
-                    node_id, device_name, cpu_threads, memory_gb, has_gpu, gpu_name,
+                    node_id, device_name, cpu_threads, memory_gb, has_gpu, gpu_name, gpu_memory_gb,
                     contribution_percent, score, trust, status, created_at, last_seen
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM nodes WHERE node_id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT created_at FROM nodes WHERE node_id = ?), CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)
                 """,
                 (
                     node_id,
@@ -137,6 +142,7 @@ class SchedulerStore:
                     body["memory_gb"],
                     1 if body.get("has_gpu") else 0,
                     body.get("gpu_name"),
+                    gpu_memory_gb,
                     body.get("contribution_percent", 30),
                     score,
                     trust,

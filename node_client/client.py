@@ -57,31 +57,56 @@ def request_with_retry(method: str, url: str, *, attempts: int = 3, **kwargs) ->
     raise RuntimeError(f"request failed after {attempts} attempts: {url}") from last_error
 
 
+def node_headers(config: NodeConfig) -> dict[str, str]:
+    token = NodeIdentity(config.identity_path).token()
+    return {"X-Ailovanta-Node-Token": token} if token else {}
+
+
 def register_node(config: NodeConfig) -> str:
     identity = NodeIdentity(config.identity_path)
     local_node_id = identity.get_or_create()
     profile = detect_device()
     payload = profile.to_api_payload(config.contribution_percent) | {"node_id": local_node_id}
-    response = request_with_retry("POST", f"{config.api_url}/nodes/register", json=payload)
+    response = request_with_retry(
+        "POST",
+        f"{config.api_url}/nodes/register",
+        json=payload,
+        headers=node_headers(config),
+    )
     data = response.json()
     node_id = data["node_id"]
-    identity.set(node_id)
+    identity.set(node_id, str(data.get("node_token") or identity.token() or "") or None)
     logging.info("registered node=%s score=%s gpu=%s", node_id, data.get("score"), payload.get("gpu_name"))
     return node_id
 
 
 def heartbeat(config: NodeConfig, node_id: str, status: str = "online") -> None:
-    request_with_retry("POST", f"{config.api_url}/nodes/heartbeat", json={"node_id": node_id, "status": status})
+    request_with_retry(
+        "POST",
+        f"{config.api_url}/nodes/heartbeat",
+        json={"node_id": node_id, "status": status},
+        headers=node_headers(config),
+    )
 
 
 def fetch_job(config: NodeConfig, node_id: str) -> dict | None:
-    response = request_with_retry("GET", f"{config.api_url}/jobs/next", params={"node_id": node_id})
+    response = request_with_retry(
+        "GET",
+        f"{config.api_url}/jobs/next",
+        params={"node_id": node_id},
+        headers=node_headers(config),
+    )
     return response.json().get("job")
 
 
 def submit_result(config: NodeConfig, node_id: str, result: dict) -> None:
     payload = result | {"node_id": node_id}
-    request_with_retry("POST", f"{config.api_url}/jobs/result", json=payload)
+    request_with_retry(
+        "POST",
+        f"{config.api_url}/jobs/result",
+        json=payload,
+        headers=node_headers(config),
+    )
 
 
 def resource_limits(config: NodeConfig) -> ResourceLimits:

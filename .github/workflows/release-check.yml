@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      legacy_foundation_gate:
+        description: "Also run the historical owned-foundation/private-core release gate"
+        required: false
+        type: boolean
+        default: false
       core_path:
         description: "Path to ailovanta-core inside the runner"
         required: false
@@ -16,14 +21,16 @@ on:
         required: false
         default: "runtime_data/local_loop/foundation_result.json"
       verify_bytes:
-        description: "Verify artifact bytes"
+        description: "Verify historical foundation artifact bytes"
         required: false
-        default: "true"
+        type: boolean
+        default: true
 
 jobs:
   release-check:
     runs-on: ubuntu-latest
     env:
+      PYTHONDONTWRITEBYTECODE: "1"
       AILOVANTA_RATE_LIMIT_ENABLED: "true"
       AILOVANTA_RATE_LIMIT_PER_MINUTE: "120"
       AILOVANTA_RATE_LIMIT_WINDOW_SECONDS: "60"
@@ -52,8 +59,20 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
-      - name: Run final release gate
-        id: release_gate
+      - name: Run coding product release gate
+        id: coding_release_gate
+        shell: bash
+        run: |
+          mkdir -p runtime_data/reports
+          set +e
+          PYTHONPATH=. python scripts/check_coding_release.py | tee runtime_data/reports/coding_release_gate.json
+          STATUS=${PIPESTATUS[0]}
+          echo "exit_code=$STATUS" >> "$GITHUB_OUTPUT"
+          exit $STATUS
+
+      - name: Run historical foundation release gate
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.legacy_foundation_gate == 'true' }}
+        id: legacy_release_gate
         shell: bash
         run: |
           mkdir -p runtime_data/reports
@@ -65,19 +84,19 @@ jobs:
             EXTRA="--verify-bytes"
           fi
           set +e
-          python scripts/check_release.py \
+          PYTHONPATH=. python scripts/check_release.py \
             --core-path "$CORE_PATH" \
             --result "$RESULT_PATH" \
             --route-key owned-chat/default \
-            $EXTRA | tee runtime_data/reports/release_gate.json
+            $EXTRA | tee runtime_data/reports/legacy_foundation_release_gate.json
           STATUS=${PIPESTATUS[0]}
           echo "exit_code=$STATUS" >> "$GITHUB_OUTPUT"
           exit $STATUS
 
-      - name: Upload release gate report
+      - name: Upload release gate reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-gate-report
-          path: runtime_data/reports/release_gate.json
+          name: release-gate-reports
+          path: runtime_data/reports/*.json
           if-no-files-found: warn
